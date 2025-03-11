@@ -7,7 +7,7 @@ const app   = express();
 const PORT  = process.env.PORT || 5000;
  
 // ❌ Middleware untuk simulasi error
-app.use(requestLogger); 
+// app.use(requestLogger); 
 app.use(appMiddleWare);
   
 // **Tambahkan Routes**

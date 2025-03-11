@@ -7,6 +7,6 @@ apiRouter.get("/", (req: Request, res: Response) => {
 });
 
 apiRouter.route("/login")
-.get(login)
+.post(login)
 
 export default apiRouter;
