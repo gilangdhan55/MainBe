@@ -15,5 +15,6 @@ export const db = knex({
       encrypt: process.env.DB_ENCRYPT === "true",
       trustServerCertificate: true,
     },
-  },
+  }, 
+  pool: { min: 2, max: 10 }, // Atur pool connection
 });

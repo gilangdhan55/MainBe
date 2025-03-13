@@ -1,18 +1,23 @@
 import express, { Request, Response, NextFunction } from "express";  
 import appMiddleWare from "./middleware/middleware"; 
 import logger, { requestLogger } from "./utils/logger";
-import routes from "./routes/index";
-import {connectDB} from "./config/db";
+import routes from "./routes/index"; 
 
 const app   = express();  
 const PORT  = process.env.PORT || 5000;
  
 // ❌ Middleware untuk simulasi error
 // app.use(requestLogger); 
+
 app.use(appMiddleWare);
   
 // **Tambahkan Routes**
 app.use(routes); 
+app.use((req, res, next) => {
+    res.setHeader("Connection", "keep-alive");
+    next();
+});
+
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     logger.error({
@@ -24,7 +29,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 app.listen(PORT, () => {
     try {
-        connectDB();
+        // connectDB();
         console.log(`🚀 Server running at http://localhost:${PORT}`); 
     } catch (error) {
         console.error("❌ Database connection failed:", error);

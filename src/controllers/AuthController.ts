@@ -3,7 +3,11 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs"; 
 import {AuthModel} from "../models/AuthModel";
 import {encript} from "../utils/bycrypt";
+import Redis from "ioredis";
+
   
+const redis = new Redis();
+
 interface User { 
     username: string; 
     platform: string[];
@@ -16,28 +20,46 @@ interface ParamUser {
 
 const login = async (req: Request, res: Response): Promise<void> => { 
     const { username, password } = req.body;
-    
-    const user = await AuthModel.getUser(username);  
-    
-    if(!user || !user.password){
+    if (!username || !password) {
         res.status(401).json({ message: "Invalid username or password", status: false });
         return;
     }
-    // compare password 
+
+    // **Cek di Redis dulu biar cepet**
+    const cacheKey = `user:${username}`;
+    const cachedUser = await redis.get(cacheKey);
+
+    let user;
+    if (cachedUser) {
+        console.log("✅ Cache hit! 🔥");
+        user = JSON.parse(cachedUser);
+    } else {
+        console.log("❌ Cache miss. Fetching from DB...");
+        user = await AuthModel.getUserLogin(username);
+        
+        if (!user || !user.password) {
+            res.status(401).json({ message: "Invalid username or password", status: false });
+            return;
+        }
+
+        // **Simpan ke Redis (TTL 10 menit)**
+        await redis.setex(cacheKey, 600, JSON.stringify(user));
+    }
+
+    // **Cek Password**
     const isMatch = await bcrypt.compare(password, user.password);
- 
-    if(!isMatch){
+    if (!isMatch) {
         res.status(404).json({ message: "Invalid username or password", status: false });
         return;
     }
 
-    //get info profile
-    const infoUser = await AuthModel.getProfileUser(username);
+    // **Ambil profile & platform**
+    const [infoUser, platForm] = await Promise.all([
+        AuthModel.getProfileUser(username),
+        AuthModel.getPlatformUser(username)
+    ]);
 
-    // get platform
-    const platForm = await AuthModel.getPlatformUser(username);
-
-    const data   = { 
+    const data = { 
         username: infoUser?.username || '',  
         image: infoUser?.image || '',  
         whatsapp: infoUser?.whatsapp || '',  
@@ -49,17 +71,15 @@ const login = async (req: Request, res: Response): Promise<void> => {
         position: infoUser?.position || '',  
         level_id: infoUser?.level_id || '',  
         level: infoUser?.level || '',  
-    } 
-    
-    const forToken = {
-        username: username,
-        platform: platForm
-    }
-    
+        email: user.email
+    };
+
+    const forToken = { username, platform: platForm };
     const token = jwt.sign(forToken, process.env.JWT_SECRET!, { expiresIn: "1h" });
 
-    res.status(200).json({   status: true, version: "v1",data: data, token: token});
-}
+    res.status(200).json({ status: true, version: "v1", data, token });
+};
+
 
 
 const updateAllpassword = async (req: Request, res: Response): Promise<void> => {
