@@ -40,9 +40,10 @@ export class AuthModel {
 
     static async getUserLogin(username: string): Promise<User | null> {
         return await db("master_users")
-            .select("username", "fullname" ,"email", "password")
+            .select("username", "fullname" ,"email", "password", "nik")
             .where("username", username)
             .orWhere("email", username)
+            .orWhere("nik", username)
             .first();
     }
 
@@ -66,6 +67,7 @@ export class AuthModel {
     }
 
     static async getProfileUser(username: string): Promise<ProfileUser | null> {
+        
         return await db("view_users_profile")
             .select(
                 "username",

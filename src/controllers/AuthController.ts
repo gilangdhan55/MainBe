@@ -32,12 +32,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
     // let user;
     // **Cek di Redis dulu biar cepet**
     const cacheKey      = `user:${username}`;
-    const platFormKey   = `platform:${username}`;
-    const profileKey    = `profile:${username}`;   
-    await redis.unlink(cacheKey);
-    await redis.unlink(platFormKey);
-    await redis.unlink(cacheKey);
- 
+    // await redis.unlink(cacheKey); 
     // await redis.flushall();
     const cachedUser    = await redis.get(cacheKey);
     let user;
@@ -53,6 +48,11 @@ const login = async (req: Request, res: Response): Promise<void> => {
         }  
         await redis.setex(cacheKey, 600, JSON.stringify(user));
     }
+ 
+    const platFormKey   = `platform:${username}`;
+    const profileKey    = `profile:${user.nik}`;   
+    // await redis.unlink(platFormKey);
+    // await redis.unlink(profileKey);
    
     if (!user || !user.password) {
         res.status(401).json({ message: "Invalid username or password", status: false });
@@ -67,7 +67,6 @@ const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const cachePlatform = await redis.get(platFormKey);
-    const cachedProfile = await redis.get(profileKey);
     if(cachePlatform){ 
         platform = JSON.parse(cachePlatform) 
     }else{ 
@@ -75,12 +74,13 @@ const login = async (req: Request, res: Response): Promise<void> => {
         await redis.setex(platFormKey, 600, JSON.stringify(platform));
     }
 
+    const cachedProfile = await redis.get(profileKey); 
     if(cachedProfile){
         console.log("✅ Cache hit! 🔥")
         profile = JSON.parse(cachedProfile)
     }else{
         console.log("❌ Cache miss. Fetching from DB...");
-        profile = await AuthModel.getProfileUser(username);
+        profile = await AuthModel.getProfileUser(user.nik);
         await redis.setex(profileKey, 600, JSON.stringify(profile));
     } 
  
