@@ -27,63 +27,44 @@ const login = async (req: Request, res: Response): Promise<void> => {
         res.status(401).json({ message: "Invalid username or password", status: false });
         return;
     }
-    
-    // let user;
+    let user;
+    let platform;
+    let profile; 
     // **Cek di Redis dulu biar cepet**
     const cacheKey      = `user:${username}`;
     // await redis.unlink(cacheKey); 
     // await redis.flushall();
     const cachedUser    = await redis.get(cacheKey);
-    let user;
-    let platform;
-    let profile;
-    if (cachedUser) { 
-        user = JSON.parse(cachedUser);
-    } else { 
-        user = await AuthModel.getUserLogin(username); 
-        if (!user || !user.password) {
-            res.status(401).json({ message: "Invalid username or password", status: false });
-            return;
-        }  
-        await redis.setex(cacheKey, 600, JSON.stringify(user));
-    } 
- 
-    const platFormKey   = `platform:${username}`;
-    const profileKey    = `profile:${user.nik}`;   
-    // await redis.unlink(platFormKey);
-    // await redis.unlink(profileKey);
-   
-    if (!user || !user.password) {
+    user                = cachedUser ? JSON.parse(cachedUser) : await AuthModel.getUserLogin(username);
+    if (!user) {
         res.status(401).json({ message: "Invalid username or password", status: false });
         return;
-    }
-    // **Cek Password**
-    const isMatch = await bcrypt.compare(password, user.password);
+    }  
+
+    !cachedUser && await redis.setex(cacheKey, 600, JSON.stringify(user));
+     
+    const platFormKey   = `platform:${username}`;
+    const profileKey    = `profile:${user.nik}`;   
+    await redis.unlink(platFormKey);
+    await redis.unlink(profileKey);
     
+    // **Cek Password**
+    const isMatch = await bcrypt.compare(password, user.password); 
     if (!isMatch) {
         res.status(404).json({ message: "Invalid username or password", status: false });
         return;
     }
 
     const cachePlatform = await redis.get(platFormKey); 
-    if(cachePlatform){ 
-        platform = JSON.parse(cachePlatform) 
-    }else{ 
-        platform = await AuthModel.getPlatformUser(username);
-        await redis.setex(platFormKey, 600, JSON.stringify(platform));
-    }
 
+    platform = cachePlatform ? JSON.parse(cachePlatform) : await AuthModel.getPlatformUser(user.nik);
+    !cachePlatform && await redis.setex(platFormKey, 600, JSON.stringify(platform));
+      
     const cachedProfile = await redis.get(profileKey); 
     
-    if(cachedProfile){
-        console.log("✅ Cache hit! 🔥")
-        profile = JSON.parse(cachedProfile)
-    }else{
-        console.log("❌ Cache miss. Fetching from DB...");
-        profile = await AuthModel.getProfileUser(user.nik); 
-        await redis.setex(profileKey, 600, JSON.stringify(profile));
-    } 
- 
+    profile = cachedProfile ? JSON.parse(cachedProfile) : await AuthModel.getProfileUser(user.nik);
+    !cachedProfile && await redis.setex(profileKey, 600, JSON.stringify(profile));
+
     const data = { 
         username: user.username || '', 
         fullname: user.fullname, 

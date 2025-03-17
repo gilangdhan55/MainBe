@@ -1,0 +1,3 @@
+    // "build": "tsc",  
+    // "dev": "tsc --watch",  
+    // "start": "nodemon dist/app.js",

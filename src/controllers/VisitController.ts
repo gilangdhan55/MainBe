@@ -44,108 +44,112 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
     const day           = getDay(date);   
     const week          = getWeekOfMonth(date);  
     const absenKey      = `user:${username}:${date}`; 
-    await redis.unlink(absenKey); 
-    const cachedAbsen   = await redis.get(absenKey);
+    // await redis.unlink(absenKey); 
+    // console.log(absenKey)
+    const cachedAbsen   = await redis.get(absenKey); 
+    absent              = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen);
 
-    if(!cachedAbsen) {
-        absent    = await VisitModel.checkAbsenSalesman(username, date);
-        await redis.setex(absenKey, 600, JSON.stringify(absent));
-    }else{
-        absent = JSON.parse(cachedAbsen);
-    }
+    !cachedAbsen && await redis.setex(absenKey, 600, JSON.stringify(absent));
 
+    // console.log(absent)
     const Schedule  = await VisitModel.getScheduleSalesman(username, day, week);
-    
+    // console.log(Schedule)
     let visit: AbsenSalesmanDetail[] = []
     let totalSchedule: number = 0,totalVisit: number = 0;
-    if(validatePastDate(date)){ 
-        console.log("Sudah lewat ⏳");
 
+    // proses hari ini atau kemarin
+    if(validatePastDate(date)){ 
+        console.log("Sudah lewat ⏳"); 
+        const {newVisit, newTotalSchedule, newTotalVisit} = await  checkAbsenYesterday(username, date); 
+        visit           = newVisit;
+        totalSchedule   = newTotalSchedule;
+        totalVisit      = newTotalVisit; 
     }else{ 
         console.log("Hari ini 📅");
         const {newVisit, newTotalSchedule, newTotalVisit} = await  checkAbsenToday(username, date, Schedule);
-        visit = newVisit;
-        totalSchedule = newTotalSchedule;
-        totalVisit = newTotalVisit;
+        visit           = newVisit;
+        totalSchedule   = newTotalSchedule;
+        totalVisit      = newTotalVisit;
     }
 
-    if (visit.length > 0) {
-        visit.sort((a, b) => {
-            const emptyDateA = !a.start_visit || a.start_visit === "0001-01-01 00:00:00.001";
-            const emptyDateB = !b.start_visit || b.start_visit === "0001-01-01 00:00:00.001";
-     
-            if (emptyDateA && emptyDateB) return a.customer_name.localeCompare(b.customer_name); 
-            if (emptyDateA) return 1; 
-            if (emptyDateB) return -1; 
-            return a.start_visit.localeCompare(b.start_visit);
-        });
-    }
-     
-
+    if (visit.length > 0)  visit = await sortingVisit(visit); 
     res.status(200).json({ status: true, version: "v1", data: {visit,  absent, totalSchedule, totalVisit} });
 };
 
-const checkAbsenToday = async (username: string, date: string, Schedule: ISchedule[]) => {
-    let totalVisit: number = 0, totalSchedule: number = 0;
-    let visitHdr, visit: AbsenSalesmanDetail[] = [];
+const checkAbsenYesterday = async (username: string, date: string) => {
+    let totalVisit = 0, totalSchedule = 0;
+    let visitHdr = [];
     const visitKeyNow = `visit:${username}:${date}:now`;
-    await redis.unlink(visitKeyNow); 
+    
+    // Ambil data dari Redis
     const cachedVisitNow = await redis.get(visitKeyNow);
-    if(!cachedVisitNow){
-        visitHdr = await VisitModel.getVisitHdr(username, date) || [];  
-        await redis.setex(visitKeyNow, 600, JSON.stringify(Schedule));
-    }else{
-        visitHdr = JSON.parse(cachedVisitNow); 
-    }  
-    if (visitHdr.length > 0) {
-        const visitDetails: AbsenSalesmanDetail[] = [];  
-        for (const schedule of Schedule) { 
-            let visitNew: AbsenSalesmanDetail = {
-                customer_code: schedule.customer_code,
-                customer_name: schedule.customer_name,
-                address: schedule.address,
-                note: "",
-                start_visit: '',
-                end_visit: '',
-                is_visit: false
-            };  
-            const findVisit = visitHdr.find((visit: AbsenSalesmanDetail) => visit.customer_code === schedule.customer_code); 
-            visitNew.note           = findVisit?.note || "";
-            visitNew.start_visit    = findVisit?.start_visit || '';
-            visitNew.end_visit      = findVisit?.end_visit || '';
-            visitNew.is_visit       = findVisit?.is_visit || false;
-            visitNew.code           = findVisit?.code || '';
-            visitNew.status         = findVisit?.start_visit ? (findVisit?.end_visit ? (findVisit?.end_visit !== '0001-01-01 00:00:00.001'? 3 : 2) : 1) : 0 ;
-            totalVisit              = visitNew.status === 3 ? totalVisit + 1 : totalVisit;
-            visitNew.start_time     = findVisit?.start_time || '';
-            visitNew.end_time       = findVisit?.end_time || '';
 
-            visitDetails.push(visitNew);  
-        }  
-        visit = visitDetails;
-    }else{
-        for (const schedule of Schedule) { 
-            const visitNew: AbsenSalesmanDetail = {
-                customer_code: schedule.customer_code,
-                customer_name: schedule.customer_name,
-                address: schedule.address,
-                note: "",
-                start_visit: '',
-                end_visit: '',
-                is_visit: false,   
-                code: '',
-                status:0,
-                start_time:'',
-                end_time:'',
-            };  
-            
-            totalVisit= 0;
-            visit.push(visitNew); 
-        }
-    }
-    totalSchedule = Schedule.length;
+    visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdrAbsent(username, date) || [] : JSON.parse(cachedVisitNow);
+    !cachedVisitNow && await redis.setex(visitKeyNow, 600, JSON.stringify(visitHdr));
 
-    return {newVisit: visit, newTotalSchedule: totalSchedule, newTotalVisit: totalVisit};
+    // Proses daftar kunjungan
+    const visit =  visitHdr.map((visit: AbsenSalesmanDetail) => {  
+        const status = visit?.start_visit ? (!visit?.end_visit ? 1 : (visit?.end_visit && visit?.end_visit !== '0001-01-01 00:00:00' ? 2 : 3) ): 0; 
+        if(status === 2) totalVisit++;
+        return { ...visit, status: status };
+    });
+    totalSchedule = visitHdr.length;
+
+    return {newVisit: visit, newTotalSchedule: totalSchedule, newTotalVisit: totalVisit}; 
+}
+
+const checkAbsenToday = async (username: string, date: string, Schedule: ISchedule[]) => {
+    let totalVisit = 0, totalSchedule = Schedule.length;
+    let visitHdr = [];
+    const visitKeyNow = `visit:${username}:${date}:now`;
+
+    // Ambil data dari Redis
+    const cachedVisitNow = await redis.get(visitKeyNow);
+    visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdr(username, date) || [] : JSON.parse(cachedVisitNow);
+    !cachedVisitNow && await redis.setex(visitKeyNow, 600, JSON.stringify(visitHdr));
+    
+    // Proses daftar kunjungan
+    const visit = Schedule.map(schedule => {
+        const findVisit = visitHdr.find((visit: AbsenSalesmanDetail) => visit.customer_code === schedule.customer_code); 
+        // 1 = absen start visit
+        // 2 = absen end visit
+        // 3 = tidak visit
+        // 0 = belum absen
+        const status = findVisit?.start_visit ? (!findVisit?.end_visit ? 1 : (findVisit?.end_visit && findVisit?.end_visit !== '0001-01-01 00:00:00' ? 2 : 3) ): 0; 
+        if (status === 2) totalVisit++;
+
+        return {
+            sales_code: username,
+            customer_code: schedule.customer_code,
+            customer_name: schedule.customer_name,
+            address: schedule.address,
+            note: findVisit?.note || "",
+            start_visit: findVisit?.start_visit || '',
+            end_visit: findVisit?.end_visit || '',
+            is_visit: findVisit?.is_visit || false,
+            code: findVisit?.code || '',
+            status,
+            start_time: findVisit?.start_time || '',
+            end_time: findVisit?.end_time || '',
+        };
+    });
+
+    return { newVisit: visit, newTotalSchedule: totalSchedule, newTotalVisit: totalVisit };
+};
+
+const sortingVisit = (visit: AbsenSalesmanDetail[]) : AbsenSalesmanDetail[] => {
+    visit.sort((a, b) => {
+        const emptyDateA = !a.start_visit || a.start_visit === '' || a.start_visit.startsWith("0001-01-01");
+        const emptyDateB = !b.start_visit || b.start_visit === '' || b.start_visit.startsWith("0001-01-01");
+    
+        if (emptyDateA && emptyDateB) return a.customer_name.localeCompare(b.customer_name);
+        if (emptyDateA) return 1;  // Yang belum visit ke bawah
+        if (emptyDateB) return -1; // Yang sudah visit ke atas
+    
+        return new Date(a.start_visit).getTime() - new Date(b.start_visit).getTime();
+    });
+
+    return visit;
 }
  
 

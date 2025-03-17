@@ -1,10 +1,19 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 
+// Interface untuk request yang memiliki user
 export interface CustomRequest extends Request {
     user?: any;
 }
 
+// Load JWT_SECRET dengan validasi
+const SECRET_KEY = process.env.JWT_SECRET || "p@nduC3rt2025";
+
+if (!process.env.JWT_SECRET) {
+    console.warn("⚠️ Warning: JWT_SECRET is not set! Using default secret.");
+}
+
+// Middleware untuk verifikasi token
 export const verifyToken = (req: CustomRequest, res: Response, next: NextFunction): void => {
     try {
         const token = req.headers.authorization?.split(" ")[1];
@@ -14,10 +23,19 @@ export const verifyToken = (req: CustomRequest, res: Response, next: NextFunctio
             return;
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
-        req.user = decoded; // Simpan user di request
+        const decoded = jwt.verify(token, SECRET_KEY);
+        req.user = decoded;
         next();
     } catch (error) {
-        res.status(403).json({ message: "Forbidden - Invalid Token" });
+        if (error instanceof TokenExpiredError) {
+            res.status(401).json({ message: "Unauthorized - Token Expired" });
+            return;
+        }
+        if (error instanceof JsonWebTokenError) {
+            res.status(403).json({ message: "Forbidden - Invalid Token" });
+            return;
+        }
+        res.status(500).json({ message: "Internal Server Error" });
+        return;
     }
 };

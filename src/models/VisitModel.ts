@@ -91,4 +91,27 @@ export class VisitModel {
         }
     }
     
+    static async getVisitHdrAbsent(username: string, date: string): Promise<AbsenSalesmanDetail[]> {
+        try {
+            const query = `
+                SELECT  sales_code, customer_code, customer_name, address, note, code, to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') start_visit, to_char(ended_date, 'YYYY-MM-DD HH24:MI:SS') end_visit,
+                    CASE 
+                        WHEN start_date = '0001-01-01 00:00:00.001' THEN false 
+                        ELSE true 
+                    END AS is_visit,
+                    customer_code, address,
+                    to_char(start_date, 'HH24:MI') AS start_time,
+                    to_char(ended_date, 'HH24:MI') AS end_time
+                FROM app.visit_hdr 
+                WHERE sales_code = ? AND DATE(created_date) = ? 
+            `;
+            
+            const result = await db.raw(query, [username, date]); 
+            return result.rows || [];  
+        } catch (error) {
+            console.error("Error fetching visitHdr:", error);
+            return [];
+        }
+    }
+    
 }
