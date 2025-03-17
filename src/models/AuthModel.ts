@@ -66,8 +66,7 @@ export class AuthModel {
         return result;
     }
 
-    static async getProfileUser(username: string): Promise<ProfileUser | null> {
-        
+    static async getProfileUser(username: string): Promise<ProfileUser | null> { 
         return await db("view_users_profile")
             .select(
                 "username",

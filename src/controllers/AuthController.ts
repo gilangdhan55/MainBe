@@ -4,8 +4,7 @@ import bcrypt from "bcrypt";
 import {AuthModel} from "../models/AuthModel";
 import {encript} from "../utils/bycrypt";
 import Redis from "ioredis";
-
-
+ 
 const redis = new Redis({
     host: "127.0.0.1",
     port: 6379,
@@ -47,7 +46,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }  
         await redis.setex(cacheKey, 600, JSON.stringify(user));
-    }
+    } 
  
     const platFormKey   = `platform:${username}`;
     const profileKey    = `profile:${user.nik}`;   
@@ -66,7 +65,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
         return;
     }
 
-    const cachePlatform = await redis.get(platFormKey);
+    const cachePlatform = await redis.get(platFormKey); 
     if(cachePlatform){ 
         platform = JSON.parse(cachePlatform) 
     }else{ 
@@ -75,17 +74,18 @@ const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const cachedProfile = await redis.get(profileKey); 
+    
     if(cachedProfile){
         console.log("✅ Cache hit! 🔥")
         profile = JSON.parse(cachedProfile)
     }else{
         console.log("❌ Cache miss. Fetching from DB...");
-        profile = await AuthModel.getProfileUser(user.nik);
+        profile = await AuthModel.getProfileUser(user.nik); 
         await redis.setex(profileKey, 600, JSON.stringify(profile));
     } 
  
     const data = { 
-        username: profile?.username || '', 
+        username: user.username || '', 
         fullname: user.fullname, 
         image: profile?.image || '',  
         whatsapp: profile?.whatsapp || '',  
@@ -97,12 +97,13 @@ const login = async (req: Request, res: Response): Promise<void> => {
         position: profile?.position || '',  
         level_id: profile?.level_id || '',  
         level: profile?.level || '',  
-        email: user.email
+        email: user.email,
+        nik: user.nik
     };
- 
+     
     const forToken = { username, platform: platform };
     const token = jwt.sign(forToken, process.env.JWT_SECRET!, { expiresIn: "1h" });
-
+    
     res.status(200).json({ status: true, version: "v1",data, token});
 };
 
