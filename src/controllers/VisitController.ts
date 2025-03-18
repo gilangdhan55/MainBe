@@ -44,7 +44,7 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
     const day           = getDay(date);   
     const week          = getWeekOfMonth(date);  
     const absenKey      = `user:${username}:${date}`; 
-    // await redis.unlink(absenKey); 
+    await redis.unlink(absenKey); 
     // console.log(absenKey)
     const cachedAbsen   = await redis.get(absenKey); 
     absent              = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen);
@@ -84,6 +84,7 @@ const checkAbsenYesterday = async (username: string, date: string) => {
     // Ambil data dari Redis
     const cachedVisitNow = await redis.get(visitKeyNow);
 
+    await redis.unlink(visitKeyNow); 
     visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdrAbsent(username, date) || [] : JSON.parse(cachedVisitNow);
     !cachedVisitNow && await redis.setex(visitKeyNow, 600, JSON.stringify(visitHdr));
 
@@ -103,6 +104,7 @@ const checkAbsenToday = async (username: string, date: string, Schedule: ISchedu
     let visitHdr = [];
     const visitKeyNow = `visit:${username}:${date}:now`;
 
+    await redis.unlink(visitKeyNow); 
     // Ambil data dari Redis
     const cachedVisitNow = await redis.get(visitKeyNow);
     visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdr(username, date) || [] : JSON.parse(cachedVisitNow);
