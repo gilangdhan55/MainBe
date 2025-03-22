@@ -1,41 +1,14 @@
 import { Request, Response } from "express";  
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
-import {getWeekOfMonth, getDay} from "../helper/GetWeek";
+import {getWeekOfMonth, getDay, getTimeNow, getTimeHour} from "../helper/GetWeek";
 import {validateUsername, validateDate, validatePastDate} from "../helper/Validator";
-import Redis from "ioredis";
-
-
-const redis = new Redis({
-    host: "127.0.0.1",
-    port: 6379,
-    retryStrategy: (times) => Math.min(times * 50, 2000) // biar nggak spam error 
-});
+import redis from "../utils/redis"
+import {keyAbsen} from "../helper/KeyRedis";
  
- 
-interface AbsenSalesmanDetail {
-    note: string; 
-    start_visit: string;
-    end_visit: string;
-    is_visit: boolean;
-    customer_code: string;
-    customer_name: string;
-    address: string;
-    code?: string;
-    status?: number;
-    start_time?: string;
-    end_time?: string;
-}
-
-interface ISchedule {
-    sales_code: string;
-    customer_code: string;
-    customer_name: string;
-    address: string;
-}
-
 const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> => { 
     const { username, date} = req.body;
-    // await redis.flushall(); 
+    await redis.flushall(); 
     if((!date || !validateDate(date)|| ( !username || !validateUsername(username)))) {
         res.status(401).json({ message: "Invalid Request", status: false });
         return;
@@ -43,17 +16,17 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
     let absent; 
     const day           = getDay(date);   
     const week          = getWeekOfMonth(date);  
-    const absenKey      = `user:${username}:${date}`; 
-    await redis.unlink(absenKey); 
+    const absenKey      = keyAbsen(username, date); 
+    // await redis.unlink(absenKey); 
     // console.log(absenKey)
     const cachedAbsen   = await redis.get(absenKey); 
+    
     absent              = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen);
 
     !cachedAbsen && await redis.setex(absenKey, 600, JSON.stringify(absent));
-
-    // console.log(absent)
+ 
     const Schedule  = await VisitModel.getScheduleSalesman(username, day, week);
-    // console.log(Schedule)
+    
     let visit: AbsenSalesmanDetail[] = []
     let totalSchedule: number = 0,totalVisit: number = 0;
 
@@ -76,15 +49,69 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
     res.status(200).json({ status: true, version: "v1", data: {visit,  absent, totalSchedule, totalVisit} });
 };
 
+const startAbsent = async (req: Request, res: Response): Promise<void> => { 
+    try {
+        const file      = req.file; // File yang di-upload 
+        const {username, latitude, longitude, fullname} = req.body;
+       
+        if (!file) res.status(400).json({ message: "File wajib diunggah!" });
+
+        if (!username || !latitude || !longitude || !fullname || !validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
+
+        // Ambil path lengkap dan nama file
+        const filePath = file?.path; // Path lengkap di server
+        const fileName = file?.filename; // Nama file (SPG004_250321095128.jpg)
+ 
+        // kumpulkan data buat insert ke db
+        const data: IStartAbsent = {
+            code: username,
+            name: fullname,
+            start_absent: getTimeNow(),
+            latitude_start: latitude,
+            longitude_start: longitude,
+            end_absent: null,
+            url_start: `uploads/absen/${username}/${fileName}`,
+        }
+ 
+        // simpan ke db
+        const insert = await VisitModel.insertAbsent(data);
+
+        if(!insert) {
+            res.status(500).json({ message: "Terjadi kesalahan server" });
+            return;
+        } 
+        
+        const absent: AbsenSalesman = {
+            code: username,
+            end_absent: '',
+            id: insert,
+            name: fullname,
+            start_absent: data.start_absent, 
+            time_start: getTimeHour(data.start_absent),
+            time_end: '' 
+        } 
+        // simpan ke redis
+        await createAbsenCache(username, absent);
+        
+        res.status(200).json({
+            message: "Absen berhasil!", 
+            status: true,
+            data: absent
+        });
+    } catch (error) {
+        console.error("Error absen:", error);
+        res.status(500).json({ message: "Terjadi kesalahan server" });
+    } 
+}
+
 const checkAbsenYesterday = async (username: string, date: string) => {
-    let totalVisit = 0, totalSchedule = 0;
-    let visitHdr = [];
+    let totalVisit  = 0, totalSchedule = 0, visitHdr    = [];
     const visitKeyNow = `visit:${username}:${date}:now`;
     
     // Ambil data dari Redis
     const cachedVisitNow = await redis.get(visitKeyNow);
 
-    await redis.unlink(visitKeyNow); 
+    // await redis.unlink(visitKeyNow); 
     visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdrAbsent(username, date) || [] : JSON.parse(cachedVisitNow);
     !cachedVisitNow && await redis.setex(visitKeyNow, 600, JSON.stringify(visitHdr));
 
@@ -94,8 +121,7 @@ const checkAbsenYesterday = async (username: string, date: string) => {
         if(status === 2) totalVisit++;
         return { ...visit, status: status };
     });
-    totalSchedule = visitHdr.length;
-
+    totalSchedule = visitHdr.length; 
     return {newVisit: visit, newTotalSchedule: totalSchedule, newTotalVisit: totalVisit}; 
 }
 
@@ -103,8 +129,8 @@ const checkAbsenToday = async (username: string, date: string, Schedule: ISchedu
     let totalVisit = 0, totalSchedule = Schedule.length;
     let visitHdr = [];
     const visitKeyNow = `visit:${username}:${date}:now`;
+    // await redis.unlink(visitKeyNow); 
 
-    await redis.unlink(visitKeyNow); 
     // Ambil data dari Redis
     const cachedVisitNow = await redis.get(visitKeyNow);
     visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdr(username, date) || [] : JSON.parse(cachedVisitNow);
@@ -113,10 +139,7 @@ const checkAbsenToday = async (username: string, date: string, Schedule: ISchedu
     // Proses daftar kunjungan
     const visit = Schedule.map(schedule => {
         const findVisit = visitHdr.find((visit: AbsenSalesmanDetail) => visit.customer_code === schedule.customer_code); 
-        // 1 = absen start visit
-        // 2 = absen end visit
-        // 3 = tidak visit
-        // 0 = belum absen
+        // 1 = absen start visit;  2 = absen end visit; 3 = tidak visit;  0 = belum absen
         const status = findVisit?.start_visit ? (!findVisit?.end_visit ? 1 : (findVisit?.end_visit && findVisit?.end_visit !== '0001-01-01 00:00:00' ? 2 : 3) ): 0; 
         if (status === 2) totalVisit++;
 
@@ -134,8 +157,7 @@ const checkAbsenToday = async (username: string, date: string, Schedule: ISchedu
             start_time: findVisit?.start_time || '',
             end_time: findVisit?.end_time || '',
         };
-    });
-
+    }); 
     return { newVisit: visit, newTotalSchedule: totalSchedule, newTotalVisit: totalVisit };
 };
 
@@ -146,13 +168,20 @@ const sortingVisit = (visit: AbsenSalesmanDetail[]) : AbsenSalesmanDetail[] => {
     
         if (emptyDateA && emptyDateB) return a.customer_name.localeCompare(b.customer_name);
         if (emptyDateA) return 1;  // Yang belum visit ke bawah
-        if (emptyDateB) return -1; // Yang sudah visit ke atas
-    
+        if (emptyDateB) return -1; // Yang sudah visit ke atas 
         return new Date(a.start_visit).getTime() - new Date(b.start_visit).getTime();
-    });
-
+    }); 
     return visit;
+}
+
+const createAbsenCache = async (username: string, absent: AbsenSalesman) => {
+    const date      = absent.start_absent.substring(0, 10);
+    const absenKey = keyAbsen(username, date);
+    await redis.unlink(absenKey);
+    await redis.setex(absenKey, 600, JSON.stringify(absent));
+
+    return true;
 }
  
 
-export {checkAbsenSalesman  }
+export {checkAbsenSalesman, startAbsent  }

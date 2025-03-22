@@ -45,8 +45,8 @@ const login = async (req: Request, res: Response): Promise<void> => {
      
     const platFormKey   = `platform:${username}`;
     const profileKey    = `profile:${user.nik}`;   
-    await redis.unlink(platFormKey);
-    await redis.unlink(profileKey);
+    // await redis.unlink(platFormKey);
+    // await redis.unlink(profileKey);
     
     // **Cek Password**
     const isMatch = await bcrypt.compare(password, user.password); 
@@ -83,8 +83,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
     };
      
     const forToken = { username, platform: platform };
-    const token = jwt.sign(forToken, process.env.JWT_SECRET!, { expiresIn: "1h" });
-    
+    const token = jwt.sign(forToken, process.env.JWT_SECRET!, { expiresIn: "1h" }); 
     res.status(200).json({ status: true, version: "v1",data, token});
 };
 

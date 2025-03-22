@@ -1,32 +1,6 @@
 import { dbVisit as db } from "../config/knex";
-
-export interface ScheduleSalesman {
-    sales_code: string;
-    customer_code: string;
-    customer_name: string;
-    address: string;
-}
-
-export interface AbsenSalesman {
-    id: number;
-    code: string;
-    name: string;
-    start_absent: string;
-    end_absent: string;
-    time_start: string;
-    time_end: string;
-}
+import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman} from '../interface/VisitInterface';
  
-export interface AbsenSalesmanDetail {
-    note: string;
-    code: string;
-    start_visit: string;
-    end_visit: string;
-    is_visit: boolean;
-    customer_code: string;
-    address: string;
-}
-
 export class VisitModel {
     static async getScheduleSalesman(username: string, day: number, week: number): Promise<ScheduleSalesman[]> {
         try {
@@ -67,7 +41,7 @@ export class VisitModel {
         return result; 
     }
 
-    static async getVisitHdr(username: string, date: string): Promise<AbsenSalesmanDetail[]> {
+    static async getVisitHdr(username: string, date: string): Promise<IModelAbsenSalesmanDetail[]> {
         try {
             const query = `
                 SELECT 
@@ -91,7 +65,7 @@ export class VisitModel {
         }
     }
     
-    static async getVisitHdrAbsent(username: string, date: string): Promise<AbsenSalesmanDetail[]> {
+    static async getVisitHdrAbsent(username: string, date: string): Promise<IModelAbsenSalesmanDetail[]> {
         try {
             const query = `
                 SELECT  sales_code, customer_code, customer_name, address, note, code, to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') start_visit, to_char(ended_date, 'YYYY-MM-DD HH24:MI:SS') end_visit,
@@ -112,6 +86,17 @@ export class VisitModel {
             console.error("Error fetching visitHdr:", error);
             return [];
         }
+    }
+
+    static async  insertAbsent(data: IStartAbsent): Promise<number | null> {
+        try {
+            const result = await db("app.absensi").insert(data).returning("id"); // Ambil ID yang baru
+            
+            return result[0].id; // Kembalikan ID
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        } 
     }
     
 }

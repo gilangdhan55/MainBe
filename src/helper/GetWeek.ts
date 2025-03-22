@@ -1,3 +1,51 @@
+const getFullFormatter = () => {
+    const formatter = new Intl.DateTimeFormat("id-ID", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+    }); 
+    return formatter;
+}
+
+const getTimeFormatter = () => {
+    const formatter = new Intl.DateTimeFormat("id-ID", {
+        timeZone: "Asia/Jakarta", 
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+    }); 
+    return formatter;
+}
+
+const fullFormattedDate = (formatter: Intl.DateTimeFormat, now: Date) : string => {
+    const parts = chunckDate(formatter, now); 
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+const dateFormattedDate = (formatter: Intl.DateTimeFormat, now: Date) : string => {
+    const parts = chunckDate(formatter, now); 
+    return `${parts.year}-${parts.month}-${parts.day}`; 
+}
+
+const timeFormattedDateHour = (formatter: Intl.DateTimeFormat, now: Date) : string => {
+    const parts = chunckDate(formatter, now); 
+    return `${parts.hour}:${parts.minute}`; 
+}
+
+const chunckDate = (formatter: Intl.DateTimeFormat, now: Date) : Record<string, string> => {
+    const parts     = formatter.formatToParts(now).reduce((acc, part) => {
+        if (part.type !== "literal") acc[part.type] = part.value;
+        return acc;
+    }, {} as Record<string, string>); 
+    return parts; 
+}
+
 const getWeekOfMonth = (dateStr: string): number => {
     const date              = new Date(dateStr);
     const year              = date.getFullYear();
@@ -17,12 +65,37 @@ const getWeekOfMonth = (dateStr: string): number => {
 
     return weekOfMonth;
 };
-
-
+ 
 const getDay = (date: string) : number => {
     const day = new Date(date).getDay();
     return day === 0 ? 7 : day;
 };
+
+
+const getTimeNow = (): string => {
+    const now           = new Date(); 
+    const formatter     = getFullFormatter(); 
+    const initFormat    = fullFormattedDate(formatter, now); 
+
+    return initFormat;
+};
+
+const getTimeHour = (date: string): string => {
+    const now        = new Date(date);
+    const formatter  = getTimeFormatter();
+    const initFormat = timeFormattedDateHour(formatter, now);
+    
+    return initFormat;
+}
+
+const getFullDateNoTme = (date?: string): string => {
+    const now        = date ? new Date(date) : new Date(); 
+    const formatter  = getFullFormatter(); 
+    const initFormat = fullFormattedDate(formatter, now); 
+
+    return initFormat;
+}
+
  
-export { getWeekOfMonth, getDay};
+export { getWeekOfMonth, getDay, getTimeNow, getTimeHour};
  
