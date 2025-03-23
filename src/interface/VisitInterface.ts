@@ -44,6 +44,14 @@ export interface IStartAbsent {
     end_absent: null | string; 
     url_start: string;
 }
+
+export interface IEndAbsent{
+    end_absent: string;
+    latitude_end: string;
+    longitude_end: string;
+    url_end: string;
+}
+  
 export interface AbsenSalesman {
     id: number;
     code: string;
@@ -53,3 +61,8 @@ export interface AbsenSalesman {
     time_start: string;
     time_end: string;
 }
+
+export interface DateNotClockOut{
+    start_absent: string;
+}
+

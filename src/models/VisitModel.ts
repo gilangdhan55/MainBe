@@ -1,5 +1,5 @@
 import { dbVisit as db } from "../config/knex";
-import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman} from '../interface/VisitInterface';
+import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman, DateNotClockOut, IEndAbsent} from '../interface/VisitInterface';
  
 export class VisitModel {
     static async getScheduleSalesman(username: string, day: number, week: number): Promise<ScheduleSalesman[]> {
@@ -98,5 +98,26 @@ export class VisitModel {
             return null;
         } 
     }
+
+    static async updateAbsent(data: IEndAbsent, id:number): Promise<boolean> {
+        try {  
+            return (await db("app.absensi").where("id", id).update(data)) > 0;
+        } catch (error) {
+            console.error("Error updating data:", error);
+            return false;
+        }
+    }
     
+    static async getAbsentNotVisit(username: string, date: string) : Promise<DateNotClockOut[] | null> {
+        const query = db("app.absensi")
+        .distinct(db.raw("to_char(start_absent, 'YYYY-MM-DD') AS start_absent")) 
+        .where("code", username)
+        .andWhereRaw("start_absent >= DATE_TRUNC('year', CURRENT_DATE)")
+        .whereNull("end_absent")
+        .orderByRaw(db.raw("to_char(start_absent, 'YYYY-MM-DD') ASC"));
+    
+        const result = await query; // ✅ Ambil semua hasil 
+        
+        return result;
+    }
 }

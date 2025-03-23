@@ -1,11 +1,12 @@
 {
-    "compilerOptions": {
-      "target": "ES6",
-      "module": "CommonJS",
-      "outDir": "dist/",
-      "rootDir": "src/",
-      "strict": true,
-      "esModuleInterop": true
-    }
+  "compilerOptions": {
+    "target": "ESNext", // Target versi JavaScript
+    "lib": ["ESNext"], // Menggunakan versi ES2021
+    "module": "CommonJS", // Menggunakan sistem modul CommonJS (cocok untuk Node.js)
+    "outDir": "dist/", // Output hasil compile akan disimpan di folder "dist/"
+    "rootDir": "src/", // Folder utama untuk source code TypeScript
+    "strict": true, // Mengaktifkan mode strict untuk memastikan kode lebih aman
+    "esModuleInterop": true, // Mempermudah import/export antara CommonJS dan ESModule
+    "incremental": true // Menggunakan build incremental agar proses compile lebih cepat
   }
-  
+}

@@ -1,10 +1,11 @@
 import { Request, Response } from "express";  
-import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman} from "../interface/VisitInterface"
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour} from "../helper/GetWeek";
 import {validateUsername, validateDate, validatePastDate} from "../helper/Validator";
 import redis from "../utils/redis"
-import {keyAbsen} from "../helper/KeyRedis";
+import {keyAbsen, keyDateNotClockOut} from "../helper/KeyRedis";
+import fs from "fs";
  
 const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> => { 
     const { username, date} = req.body;
@@ -19,10 +20,8 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
     const absenKey      = keyAbsen(username, date); 
     // await redis.unlink(absenKey); 
     // console.log(absenKey)
-    const cachedAbsen   = await redis.get(absenKey); 
-    
-    absent              = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen);
-
+    const cachedAbsen   = await redis.get(absenKey);  
+    absent              = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen); 
     !cachedAbsen && await redis.setex(absenKey, 600, JSON.stringify(absent));
  
     const Schedule  = await VisitModel.getScheduleSalesman(username, day, week);
@@ -44,9 +43,16 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
         totalSchedule   = newTotalSchedule;
         totalVisit      = newTotalVisit;
     }
-
+    let absentNotVisit;
+    // ambil data absen yang belum clock out
+    const absentNotVisitKey = keyDateNotClockOut(date);
+    const cachedAbsentNotVisit = await redis.get(absentNotVisitKey);
+    absentNotVisit = !cachedAbsentNotVisit ? await VisitModel.getAbsentNotVisit(username, date) || [] : JSON.parse(cachedAbsentNotVisit); 
+    !cachedAbsentNotVisit && await redis.setex(absentNotVisitKey, 600, JSON.stringify(absentNotVisit));
+     
     if (visit.length > 0)  visit = await sortingVisit(visit); 
-    res.status(200).json({ status: true, version: "v1", data: {visit,  absent, totalSchedule, totalVisit} });
+
+    res.status(200).json({ status: true, version: "v1", data: {visit,  absent, totalSchedule, totalVisit, absentNotVisit} });
 };
 
 const startAbsent = async (req: Request, res: Response): Promise<void> => { 
@@ -102,6 +108,47 @@ const startAbsent = async (req: Request, res: Response): Promise<void> => {
         console.error("Error absen:", error);
         res.status(500).json({ message: "Terjadi kesalahan server" });
     } 
+}
+
+const endAbsent = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const file      = req.file; // File yang di-upload 
+        if (!file) res.status(400).json({ message: "File wajib diunggah!" });
+        
+        const {username, latitude, longitude, fullname, id} = req.body;
+        if (!username || !latitude || !longitude || !fullname || !id || !validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
+
+         // Ambil path lengkap dan nama file
+        const filePath = file?.path; // Path lengkap di server
+        const fileName = file?.filename; // Nama file (SPG004_250321095128.jpg)
+
+        // kumpulkan data buat insert ke db
+        const data: IEndAbsent = {
+            end_absent: getTimeNow(),
+            latitude_end: latitude,
+            longitude_end: longitude,
+            url_end: `uploads/absen/${username}/${fileName}`,
+        }
+
+        // let update = await VisitModel.updateAbsent(data, id);
+        let update = false;
+        if(!update) {
+            console.error("🚨 Gagal update absen:", { id, data });
+
+            if (filePath && fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                } catch (err) {
+                    console.error("❌ Gagal menghapus file:", err);
+                }
+            }
+        }
+        
+        res.status(200).json({ message: "Absen berhasil!", status: true });
+    } catch (error) {
+        console.error("Error absen:", error);
+        res.status(500).json({ message: "Terjadi kesalahan server as" });   
+    }
 }
 
 const checkAbsenYesterday = async (username: string, date: string) => {
@@ -184,4 +231,4 @@ const createAbsenCache = async (username: string, absent: AbsenSalesman) => {
 }
  
 
-export {checkAbsenSalesman, startAbsent  }
+export {checkAbsenSalesman, startAbsent, endAbsent  }

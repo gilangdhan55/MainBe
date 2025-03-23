@@ -1,9 +1,11 @@
 import knex from "knex";
 import dotenv from "dotenv";
+import { attachOnDisconnectHandler } from "../utils/dbReconnect";
 
 dotenv.config();
 
-export const db = knex({
+// **Factory function buat bikin koneksi baru**
+const createMssqlDb = () => knex({
   client: "mssql",
   connection: {
     user: process.env.DB_USER,
@@ -15,13 +17,16 @@ export const db = knex({
       encrypt: process.env.DB_ENCRYPT === "true",
       trustServerCertificate: true,
     },
-  }, 
-  pool: { min: 2, max: 10,  acquireTimeoutMillis: 30000, // Timeout saat mengambil koneksi (30 detik)
-        idleTimeoutMillis: 30000, // Timeout saat koneksi idle}, // Atur pool connection
-      }
+  },
+  pool: { 
+    min: 2, 
+    max: 10,  
+    acquireTimeoutMillis: 30000, 
+    idleTimeoutMillis: 30000,
+  }
 });
 
-export const dbVisit = knex({
+const createPgDb = () => knex({
   client: "pg",
   connection: {
     user: process.env.PG_USER,
@@ -30,12 +35,16 @@ export const dbVisit = knex({
     host: process.env.PG_HOST,
     port: parseInt(process.env.PG_PORT || "5432"),
   },
-  pool: { 
-    min: 2, 
-    max: 10, 
-    idleTimeoutMillis: 30000, // Putuskan koneksi idle setelah 30 detik
-    createTimeoutMillis: 3000, // Timeout saat membuat koneksi
-    acquireTimeoutMillis: 30000, // Timeout saat mengambil koneksi
-    reapIntervalMillis: 1000, // Seberapa sering pool membersihkan koneksi yang tidak dipakai
-  },
+  pool: {
+    min: 2,
+    max: 10,
+  }
 });
+
+// **Inisialisasi koneksi pertama**
+export let db = createMssqlDb();
+export let dbVisit = createPgDb();
+
+// **Tambahkan event listener buat auto-reconnect**
+attachOnDisconnectHandler(db, createMssqlDb);
+attachOnDisconnectHandler(dbVisit, createPgDb);
