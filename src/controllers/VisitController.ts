@@ -6,6 +6,7 @@ import {validateUsername, validateDate, validatePastDate} from "../helper/Valida
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut} from "../helper/KeyRedis";
 import fs from "fs";
+import {UploadAbsent} from "../helper/UploadFile";
  
 const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> => { 
     const { username, date} = req.body;
@@ -18,8 +19,7 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
     const day           = getDay(date);   
     const week          = getWeekOfMonth(date);  
     const absenKey      = keyAbsen(username, date); 
-    // await redis.unlink(absenKey); 
-    // console.log(absenKey)
+ 
     const cachedAbsen   = await redis.get(absenKey);  
     absent              = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen); 
     !cachedAbsen && await redis.setex(absenKey, 600, JSON.stringify(absent));
@@ -44,14 +44,13 @@ const checkAbsenSalesman = async (req: Request, res: Response): Promise<void> =>
         totalVisit      = newTotalVisit;
     }
     let absentNotVisit;
+
     // ambil data absen yang belum clock out
     const absentNotVisitKey = keyDateNotClockOut(date);
     const cachedAbsentNotVisit = await redis.get(absentNotVisitKey);
     absentNotVisit = !cachedAbsentNotVisit ? await VisitModel.getAbsentNotVisit(username, date) || [] : JSON.parse(cachedAbsentNotVisit); 
-    !cachedAbsentNotVisit && await redis.setex(absentNotVisitKey, 600, JSON.stringify(absentNotVisit));
-     
-    if (visit.length > 0)  visit = await sortingVisit(visit); 
-
+    !cachedAbsentNotVisit && await redis.setex(absentNotVisitKey, 600, JSON.stringify(absentNotVisit)); 
+    if (visit.length > 0)  visit = await sortingVisit(visit);  
     res.status(200).json({ status: true, version: "v1", data: {visit,  absent, totalSchedule, totalVisit, absentNotVisit} });
 };
 
@@ -64,10 +63,15 @@ const startAbsent = async (req: Request, res: Response): Promise<void> => {
 
         if (!username || !latitude || !longitude || !fullname || !validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
 
+        // proses upload file 
+        const upload = UploadAbsent(file as Express.Multer.File, username);
+
+        if(!upload.status) res.status(500).json({ message: upload.message, status: false });
+
         // Ambil path lengkap dan nama file
-        const filePath = file?.path; // Path lengkap di server
-        const fileName = file?.filename; // Nama file (SPG004_250321095128.jpg)
- 
+        const filePath = upload?.path; // Path lengkap di server
+        const fileName = upload?.filename; // Nama file (SPG004_250321095128.jpg)
+
         // kumpulkan data buat insert ke db
         const data: IStartAbsent = {
             code: username,
@@ -83,18 +87,19 @@ const startAbsent = async (req: Request, res: Response): Promise<void> => {
         const insert = await VisitModel.insertAbsent(data);
 
         if(!insert) {
+            if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath); 
             res.status(500).json({ message: "Terjadi kesalahan server" });
             return;
         } 
         
         const absent: AbsenSalesman = {
             code: username,
-            end_absent: '',
+            end_absent: null,
             id: insert,
             name: fullname,
             start_absent: data.start_absent, 
             time_start: getTimeHour(data.start_absent),
-            time_end: '' 
+            time_end: null 
         } 
         // simpan ke redis
         await createAbsenCache(username, absent);
@@ -113,15 +118,19 @@ const startAbsent = async (req: Request, res: Response): Promise<void> => {
 const endAbsent = async (req: Request, res: Response): Promise<void> => {
     try {
         const file      = req.file; // File yang di-upload 
-        if (!file) res.status(400).json({ message: "File wajib diunggah!" });
-        
-        const {username, latitude, longitude, fullname, id} = req.body;
-        if (!username || !latitude || !longitude || !fullname || !id || !validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
+        if (!file) res.status(400).json({ message: "File wajib diunggah!" }); 
+        const {username, latitude, longitude, fullname, id, date} = req.body;
+ 
+        if (!username || !latitude || !longitude || !fullname || !date || !id || !validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
+
+         // proses upload file 
+        const upload = UploadAbsent(file as Express.Multer.File, username); 
+        if(!upload.status) res.status(500).json({ message: upload.message, status: false });
 
          // Ambil path lengkap dan nama file
-        const filePath = file?.path; // Path lengkap di server
-        const fileName = file?.filename; // Nama file (SPG004_250321095128.jpg)
-
+        const filePath = upload?.path; // Path lengkap di server
+        const fileName = upload?.filename; // Nama file (SPG004_250321095128.jpg)
+ 
         // kumpulkan data buat insert ke db
         const data: IEndAbsent = {
             end_absent: getTimeNow(),
@@ -130,21 +139,16 @@ const endAbsent = async (req: Request, res: Response): Promise<void> => {
             url_end: `uploads/absen/${username}/${fileName}`,
         }
 
-        // let update = await VisitModel.updateAbsent(data, id);
-        let update = false;
-        if(!update) {
-            console.error("🚨 Gagal update absen:", { id, data });
-
-            if (filePath && fs.existsSync(filePath)) {
-                try {
-                    fs.unlinkSync(filePath);
-                } catch (err) {
-                    console.error("❌ Gagal menghapus file:", err);
-                }
-            }
+        let update = await VisitModel.updateAbsent(data, id);
+     
+        if(!update) {  
+            if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            res.status(400).json({ status: false, message: "Error updating data" });
+            return;
         }
-        
-        res.status(200).json({ message: "Absen berhasil!", status: true });
+        data.date = date;
+        await updateAbsenCache(username, data)
+        res.status(200).json({ message: "Clock out berhasil!", status: true, data });
     } catch (error) {
         console.error("Error absen:", error);
         res.status(500).json({ message: "Terjadi kesalahan server as" });   
@@ -185,8 +189,8 @@ const checkAbsenToday = async (username: string, date: string, Schedule: ISchedu
     
     // Proses daftar kunjungan
     const visit = Schedule.map(schedule => {
-        const findVisit = visitHdr.find((visit: AbsenSalesmanDetail) => visit.customer_code === schedule.customer_code); 
         // 1 = absen start visit;  2 = absen end visit; 3 = tidak visit;  0 = belum absen
+        const findVisit = visitHdr.find((visit: AbsenSalesmanDetail) => visit.customer_code === schedule.customer_code); 
         const status = findVisit?.start_visit ? (!findVisit?.end_visit ? 1 : (findVisit?.end_visit && findVisit?.end_visit !== '0001-01-01 00:00:00' ? 2 : 3) ): 0; 
         if (status === 2) totalVisit++;
 
@@ -227,6 +231,21 @@ const createAbsenCache = async (username: string, absent: AbsenSalesman) => {
     await redis.unlink(absenKey);
     await redis.setex(absenKey, 600, JSON.stringify(absent));
 
+    return true;
+}
+
+const updateAbsenCache = async (username: string, absent: IEndAbsent) => {
+    const date          = absent.date?.substring(0, 10) || new Date().toISOString().split('T')[0];
+    const absenKey      = keyAbsen(username, date);
+    const cachedAbsent  = await redis.get(absenKey);
+    if(!cachedAbsent) return false; 
+    const newAbsent     = JSON.parse(cachedAbsent); 
+    newAbsent.end_absent = absent.end_absent;
+    newAbsent.latitude_end = absent.latitude_end;
+    newAbsent.longitude_end = absent.longitude_end;
+    newAbsent.url_end = absent.url_end;
+    await redis.unlink(absenKey);
+    await redis.setex(absenKey, 600, JSON.stringify(newAbsent));
     return true;
 }
  

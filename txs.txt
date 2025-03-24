@@ -1,3 +1,8 @@
     // "build": "tsc",  
     // "dev": "tsc --watch",  
     // "start": "nodemon dist/app.js",
+
+
+       // await redis.flushall(); 
+    // await redis.unlink(absenKey); 
+    // console.log(absenKey)

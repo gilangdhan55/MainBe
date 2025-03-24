@@ -50,6 +50,7 @@ export interface IEndAbsent{
     latitude_end: string;
     longitude_end: string;
     url_end: string;
+    date?: string;
 }
   
 export interface AbsenSalesman {
@@ -57,12 +58,18 @@ export interface AbsenSalesman {
     code: string;
     name: string;
     start_absent: string;
-    end_absent: string;
+    end_absent: string | null;
     time_start: string;
-    time_end: string;
+    time_end: string | null;
 }
 
 export interface DateNotClockOut{
     start_absent: string;
 }
 
+export interface UploadResponseAbsen {
+    status: boolean;
+    message: string;
+    path?: string;
+    filename?: string;
+}

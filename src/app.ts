@@ -2,8 +2,12 @@ import express, { Request, Response, NextFunction } from "express";
 import appMiddleWare from "./middleware/middleware"; 
 // import logger, { requestLogger } from "./utils/logger";
 import routes from "./routes/index";
+import cors from "cors";
 
 const app = express();
+app.use(cors());
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true })); 
 const PORT = process.env.PORT || 5000;
 
 // 🔥 Tangani error yang bisa bikin server mati

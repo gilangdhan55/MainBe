@@ -14,7 +14,7 @@ if (!process.env.JWT_SECRET) {
 }
 
 // Middleware untuk verifikasi token
-export const verifyToken = (req: CustomRequest, res: Response, next: NextFunction): void => {
+export const verifyToken = (req: CustomRequest, res: Response, next: NextFunction): void => { 
     try {
         const token = req.headers.authorization?.split(" ")[1];
 
@@ -25,7 +25,7 @@ export const verifyToken = (req: CustomRequest, res: Response, next: NextFunctio
 
         const decoded = jwt.verify(token, SECRET_KEY);
         req.user = decoded;
-        next();
+        next();  
     } catch (error) {
         if (error instanceof TokenExpiredError) {
             res.status(401).json({ message: "Unauthorized - Token Expired" });
