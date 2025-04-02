@@ -1,7 +1,9 @@
-import express, { Request, Response, NextFunction } from "express"; 
+import express  from "express"; 
 import {verifyToken} from "../../../middleware/checkToken";
-import { checkAbsenSalesman, startAbsent, endAbsent } from "../../../controllers/VisitController";
-import uploadImg from "../../../middleware/uploadFotoVisit";
+import { checkAbsenSalesman, startAbsent, endAbsent, checkAbsenVisit,
+    getMasteItemOutlet
+ } from "../../../controllers/VisitController";
+import uploadImg from "../../../middleware/uploadFotoVisit"; 
 const routeVisit = express.Router();
 
 
@@ -16,5 +18,14 @@ routeVisit.route("/start-absent")
 routeVisit.route("/end-absent")
 .all(verifyToken)
 .post(uploadImg.single("file"),endAbsent);
+
+
+routeVisit.route("/check-absent-visit")
+.all(verifyToken)
+.post(checkAbsenVisit);
+
+routeVisit.route("/visit-master-item-outlet")
+.all(verifyToken)
+.post(getMasteItemOutlet);
 
 export default routeVisit;

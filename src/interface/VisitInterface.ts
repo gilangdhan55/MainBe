@@ -73,3 +73,29 @@ export interface UploadResponseAbsen {
     path?: string;
     filename?: string;
 }
+
+
+export interface IVisitHdr {
+    id: number;
+    code: string;
+    sales_code: string;
+    sales_name: string;
+    customer_code: string;
+    customer_name: string;
+    address: string; 
+    start_date: Date;
+    ended_date: Date;
+}
+
+export interface IMasterItemOutlet {
+    id: number;
+    code_item: number;
+    item_code: string;
+    name_item: string;
+    category: string;
+    brand_name: string;
+    type_item: string; 
+    min_outlet_stock: number;
+    min_outlet_order: number;
+    uom_to: string; 
+}

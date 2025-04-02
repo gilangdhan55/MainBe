@@ -18,22 +18,21 @@ const login = async (req: Request, res: Response): Promise<void> => {
     if (!username || !password) {
         res.status(401).json({ message: "Invalid username or password", status: false });
         return;
-    }
-    let user;
-    let platform;
-    let profile; 
+    }   
     // **Cek di Redis dulu biar cepet**
     const cacheKey      = `user:${username}`;
     // await redis.unlink(cacheKey); 
     // await redis.flushall();
     const cachedUser    = await redis.get(cacheKey);
-    user                = cachedUser ? JSON.parse(cachedUser) : await AuthModel.getUserLogin(username);
+    const user          = cachedUser ? JSON.parse(cachedUser) : await AuthModel.getUserLogin(username);
     if (!user) {
         res.status(401).json({ message: "Invalid username or password", status: false });
         return;
     }  
 
-    !cachedUser && await redis.setex(cacheKey, 600, JSON.stringify(user));
+    if (!cachedUser) {
+        await redis.setex(cacheKey, 600, JSON.stringify(user));
+    }
      
     const platFormKey   = `platform:${username}`;
     const profileKey    = `profile:${user.nik}`;   
@@ -49,13 +48,17 @@ const login = async (req: Request, res: Response): Promise<void> => {
 
     const cachePlatform = await redis.get(platFormKey); 
 
-    platform = cachePlatform ? JSON.parse(cachePlatform) : await AuthModel.getPlatformUser(user.nik);
-    !cachePlatform && await redis.setex(platFormKey, 600, JSON.stringify(platform));
+    const platform = cachePlatform ? JSON.parse(cachePlatform) : await AuthModel.getPlatformUser(user.nik);
+    if(!cachePlatform){
+        await redis.setex(platFormKey, 600, JSON.stringify(platform));
+    } 
       
     const cachedProfile = await redis.get(profileKey); 
     
-    profile = cachedProfile ? JSON.parse(cachedProfile) : await AuthModel.getProfileUser(user.nik);
-    !cachedProfile && await redis.setex(profileKey, 600, JSON.stringify(profile));
+    const profile = cachedProfile ? JSON.parse(cachedProfile) : await AuthModel.getProfileUser(user.nik);
+    if(!cachedProfile){
+        await redis.setex(profileKey, 600, JSON.stringify(profile));
+    }  
 
     const data = { 
         username: user.username || '', 
@@ -81,7 +84,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
 
 
 
-const updateAllpassword = async (req: Request, res: Response): Promise<void> => {
+const updateAllpassword = async (_: Request, res: Response): Promise<void> => {
     const users = await AuthModel.getAllUsers();
 
     for(const user of users){
@@ -91,7 +94,7 @@ const updateAllpassword = async (req: Request, res: Response): Promise<void> => 
             username: user.username,
             password: password
         }
-        const update = await AuthModel.updatePassword(param);
+        await AuthModel.updatePassword(param);
     }
      
     res.status(200).json({data: users, status: true, version: "v1" });

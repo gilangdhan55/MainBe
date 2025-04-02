@@ -1,5 +1,4 @@
-import logger from "./logger";
-import knex from "knex";
+import logger from "./logger"; 
 
 export function attachOnDisconnectHandler(dbInstance: any, createNewDb: () => any) {
     dbInstance.on("error", (err: any) => {

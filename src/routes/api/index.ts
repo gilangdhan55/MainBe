@@ -1,9 +1,9 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import { login, updateAllpassword } from "../../controllers/AuthController";
 import routeVisit from "./visit/index";
 const apiRouter = express.Router();
 
-apiRouter.get("/", (req: Request, res: Response) => {
+apiRouter.get("/", (_: Request, res: Response) => {
     res.json({ message: "User API v1", version: "v1" });
 });
 

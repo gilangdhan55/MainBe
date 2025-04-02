@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import appMiddleWare from "./middleware/middleware"; 
 // import logger, { requestLogger } from "./utils/logger";
 import routes from "./routes/index";
@@ -16,7 +16,7 @@ process.on("uncaughtException", (err) => {
     process.exit(1); // Matikan server dengan kode error
 });
 
-process.on("unhandledRejection", (reason, promise) => {
+process.on("unhandledRejection", (reason) => {
     console.error("❌ Unhandled Rejection:", reason);
     // Jangan exit, biar tetap bisa reconnect
 });
@@ -25,7 +25,7 @@ process.on("unhandledRejection", (reason, promise) => {
 app.use(appMiddleWare);
 
 // ✅ Tambahkan Middleware untuk menangani koneksi yang mati
-app.use((req, res, next) => {
+app.use((_, res, next) => {
     res.setHeader("Connection", "keep-alive");
     next();
 });
@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 app.use(routes);
 
 // ✅ Tangani error secara global
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _: Request, res: Response) => {
     console.error(`❌ Error: ${err.message}`);
     res.status(500).json({ message: err.message });
 });

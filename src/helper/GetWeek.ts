@@ -52,7 +52,7 @@ const getWeekOfMonth = (dateStr: string): number => {
     const month             = date.getMonth();
     const firstDay          = new Date(year, month, 1);
     const firstDayOfWeek    = (firstDay.getDay() + 6) % 7; 
-    let weekOfMonth         = Math.ceil((date.getDate() + firstDayOfWeek) / 7);
+    const weekOfMonth       = Math.ceil((date.getDate() + firstDayOfWeek) / 7);
  
     const lastDay   = new Date(year, month + 1, 0); 
     const lastWeek  = Math.ceil((lastDay.getDate() + firstDayOfWeek) / 7);
@@ -96,6 +96,21 @@ const getFullDateNoTme = (date?: string): string => {
     return initFormat;
 }
 
+const getLevelWeek = (week: number): Array<string> => { 
+    switch (week) {
+        case 1:
+            return ['MUST CHECK'];
+        case 2:
+            return ['MUST CHECK', 'MEDIUM'];
+        case 3:
+            return ['MUST CHECK', 'LOW'];
+        case 4:
+            return ['MUST CHECK', 'MEDIUM']; 
+        default:
+            return [];
+    }
+}
+
  
-export { getWeekOfMonth, getDay, getTimeNow, getTimeHour};
+export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate};
  

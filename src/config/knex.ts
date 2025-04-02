@@ -42,8 +42,8 @@ const createPgDb = () => knex({
 });
 
 // **Inisialisasi koneksi pertama**
-export let db = createMssqlDb();
-export let dbVisit = createPgDb();
+export const db = createMssqlDb();
+export const dbVisit = createPgDb();
 
 // **Tambahkan event listener buat auto-reconnect**
 attachOnDisconnectHandler(db, createMssqlDb);

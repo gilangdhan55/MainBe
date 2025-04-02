@@ -1,5 +1,7 @@
 import { dbVisit as db } from "../config/knex";
-import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman, DateNotClockOut, IEndAbsent} from '../interface/VisitInterface';
+import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman, DateNotClockOut, IEndAbsent
+    ,IVisitHdr, IMasterItemOutlet
+} from '../interface/VisitInterface';
  
 export class VisitModel {
     static async getScheduleSalesman(username: string, day: number, week: number): Promise<ScheduleSalesman[]> {
@@ -15,7 +17,7 @@ export class VisitModel {
                     AND day = ? `,
                     [username, day]
                 )
-                .then(res => res.rows || res || []); // Menangani hasil untuk berbagai DB
+                .then((res: { rows: any; }) => res.rows || res || []); // Menangani hasil untuk berbagai DB
     
             return result;
         } catch (error) {
@@ -108,7 +110,7 @@ export class VisitModel {
         }
     }
     
-    static async getAbsentNotVisit(username: string, date: string) : Promise<DateNotClockOut[] | null> {
+    static async getAbsentNotVisit(username: string) : Promise<DateNotClockOut[] | null> {
         const query = db("app.absensi")
         .distinct(db.raw("to_char(start_absent, 'YYYY-MM-DD') AS start_absent")) 
         .where("code", username)
@@ -118,6 +120,51 @@ export class VisitModel {
     
         const result = await query; // ✅ Ambil semua hasil 
         
+        return result;
+    }
+
+
+    static async checkVisitHdr(username: string, date: string, customerCode: string) : Promise<IVisitHdr | null> {
+        const query = db("app.visit_hdr")
+        .select(
+            "id",
+            "sales_code",
+            "customer_code",
+            "customer_name",
+            "address",
+            "note",
+            "code",
+            db.raw("to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') AS start_visit"),
+            db.raw("to_char(ended_date, 'YYYY-MM-DD HH24:MI:SS') AS end_visit"), 
+        )
+        .where("sales_code", username)
+        .andWhere("customer_code", customerCode)
+        .andWhereRaw("DATE(start_date) = ?", [date])
+        .first();
+    
+        const result = await query; // ✅ Ambil semua hasil 
+        return result;
+    }
+
+    static async getMasteItemOutlet(customerCode: string) : Promise<IMasterItemOutlet[] | null> {
+        const query = db("master.product_customers AS a")
+        .select(
+            db.raw("max(a.id) AS id"),
+            "a.code_item",
+            "b.item_code",
+            "a.name_item",
+            "a.category",
+            "b.brand_name",
+            "b.type_item", 
+            db.raw("max(a.min_outlet_stock) AS min_outlet_stock"),
+            db.raw("max(a.min_order) AS min_outlet_order"),
+            "b.uom_to"
+        )
+        .innerJoin("master.products AS b", "a.code_item", "b.code_item")
+        .where("a.customer_code", customerCode)
+        .groupBy("a.code_item", "b.item_code", "a.name_item", "a.category", "b.brand_name", "b.type_item", "b.uom_to");
+    
+        const result = await query; // ✅ Ambil semua hasil 
         return result;
     }
 }
