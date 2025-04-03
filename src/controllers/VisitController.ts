@@ -275,7 +275,7 @@ const getMasteItemOutlet = async (req: Request, res: Response) : Promise<void> =
     };
     const week          = getWeekOfMonth(date);  
     const levelWeek     = getLevelWeek(week);
-
+    
     const key           = keyItemVisitOutlet(customerCode, week, date); 
     const getCached     = await redis.get(key);
 

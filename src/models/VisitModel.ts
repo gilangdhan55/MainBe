@@ -17,7 +17,7 @@ export class VisitModel {
                     AND day = ? `,
                     [username, day]
                 )
-                .then((res: { rows: any; }) => res.rows || res || []); // Menangani hasil untuk berbagai DB
+                .then((res) => res.rows || res || []); // Menangani hasil untuk berbagai DB
     
             return result;
         } catch (error) {
@@ -162,7 +162,8 @@ export class VisitModel {
         )
         .innerJoin("master.products AS b", "a.code_item", "b.code_item")
         .where("a.customer_code", customerCode)
-        .groupBy("a.code_item", "b.item_code", "a.name_item", "a.category", "b.brand_name", "b.type_item", "b.uom_to");
+        .groupBy("a.code_item", "b.item_code", "a.name_item", "a.category", "b.brand_name", "b.type_item", "b.uom_to")
+        .orderBy("a.name_item", "asc");
     
         const result = await query; // ✅ Ambil semua hasil 
         return result;
