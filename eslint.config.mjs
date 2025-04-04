@@ -19,7 +19,7 @@ export default defineConfig([
   },
   tseslint.configs.recommended,
   {
-    files: ["src/utils/dbReconnect.ts"], // Ganti dengan nama file yang kamu inginkan
+    files: ["src/utils/dbReconnect.ts", "src/controllers/BaseController.ts"], // Ganti dengan nama file yang kamu inginkan
     rules: {
       "@typescript-eslint/no-explicit-any": "off" // Menonaktifkan aturan di file ini
     }

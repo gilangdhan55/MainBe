@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import "tsconfig-paths/register";
 import appMiddleWare from "./middleware/middleware"; 
 // import logger, { requestLogger } from "./utils/logger";
 import routes from "./routes/index";
