@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
+import jwt,  { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 
 // Interface untuk user di token
 interface DecodedUser {
@@ -22,9 +22,10 @@ if (!process.env.JWT_SECRET) {
 export const verifyToken = (req: CustomRequest, res: Response, next: NextFunction): void => { 
     try {
         const token = req.headers.authorization?.split(" ")[1];
-
+        
         if (!token) {
-             res.status(401).json({ message: "Unauthorized - No Token Provided" });
+            res.status(401).json({ message: "Unauthorized - No Token Provided" });
+            return;
         }
 
         const SECRET_KEY = process.env.JWT_SECRET || "p@nduC3rt2025";
@@ -32,7 +33,10 @@ export const verifyToken = (req: CustomRequest, res: Response, next: NextFunctio
         if (!SECRET_KEY) {
             throw new Error("JWT_SECRET is not set. Please define it in your environment variables.");
         }
+        console.log(token)
+        const decoded = jwt.verify(token, SECRET_KEY) as DecodedUser; // ini yang bakal lempar TokenExpiredError kalo token udah expired
 
+        req.user = decoded; 
         next();
     } catch (error) {
         if (error instanceof TokenExpiredError) {
