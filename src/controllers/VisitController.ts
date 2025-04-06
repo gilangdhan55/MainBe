@@ -7,12 +7,15 @@ import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet} from "../helper/KeyRedis";
 import fs from "fs";
 import {UploadAbsent} from "../helper/UploadFile"; 
+import BaseController from "./BaseController";
  
 
-class VisitController {
+class VisitController extends BaseController{
     private static instance: VisitController;
  
-    private constructor() {}
+    private constructor() {
+        super();
+    }
  
     static getInstance(): VisitController {
         if (!VisitController.instance) {
@@ -234,45 +237,38 @@ class VisitController {
         }
     }
     
-    
-    
+     
     async checkAbsenVisit(req: Request, res: Response): Promise<void>{
         try {
             if (Object.keys(req.body).length < 1) {
-                 res.status(400).json({ message: "Invalid Request", status: false });
-                 return
+                this.sendError(res, "Invalid Request", 400); 
+                return
             }
     
             const { username, date, customerCode } = req.body;
     
-            if ((!username || !validateUsername(username)) || (!date || !validateDate(date)) || !customerCode) {
-                 res.status(400).json({ message: "Invalid Request", status: false });
+            if ((!username || !validateUsername(username)) || (!date || !validateDate(date)) || !customerCode) {  
+                this.sendError(res, "Invalid Request", 400); 
                  return;
             }
     
-            const key = keyAbsentVisit(username, customerCode, date); 
-            const getCached = await redis.get(key);
+            const key           = keyAbsentVisit(username, customerCode, date); 
+            const getCached     = await redis.get(key);
     
             const cached: IVisitHdr = getCached ? JSON.parse(getCached) : (await VisitModel.checkVisitHdr(username, date, customerCode)) ?? {};
     
             if (!getCached) { 
                 await redis.setex(key, 600, JSON.stringify(cached));
-            }
-    
-            if (Object.keys(cached).length < 1) {
-                 res.json({ message: "Absen not found", status: false, isAbsen: false });
-                 return;
-            }
-    
-            res.json({ message: "success", version: "v1", data: cached, status: true, isAbsen: true });
+            } 
+            
+            const data = {version: "v1", data: cached, status: true, isAbsen: Object.keys(cached).length < 1 ? false : true};
+             
+             
+            this.sendResponse(res, data, data.isAbsen ? 'Absen found' : 'Absen not found') 
             return;
         } catch (error: unknown) {
-            console.error(error);
-             res.status(500).json({
-                message: "Internal Server Error",
-                status: false,
-                error: error instanceof Error ? error.message : undefined
-            });
+            console.error(error); 
+            this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
         }
     };
     
