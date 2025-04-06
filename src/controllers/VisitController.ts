@@ -288,7 +288,7 @@ class VisitController extends BaseController{
         const getCached     = await redis.get(key);
     
         let getOutletItem: IMasterItemOutlet[] = getCached ? JSON.parse(getCached) : (await VisitModel.getMasteItemOutlet(customerCode) ?? []);
-    
+    // pull data ke redis
         if(!getCached){
             await redis.setex(key, 600, JSON.stringify(getOutletItem)); 
         } 
