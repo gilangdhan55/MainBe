@@ -12,9 +12,7 @@ interface ParamUser {
 }
 
 const login = async (req: Request, res: Response): Promise<void> => { 
-    const { username, password } = req.body;
-    console.log("🔍 API hit");
-
+    const { username, password } = req.body;  
     if (!username || !password) {
         res.status(401).json({ message: "Invalid username or password", status: false });
         return;
@@ -87,8 +85,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
 const updateAllpassword = async (_: Request, res: Response): Promise<void> => {
     const users = await AuthModel.getAllUsers();
 
-    for(const user of users){
-        console.log(user.password)
+    for(const user of users){ 
         const password = await encript(user.password);
         const param:ParamUser = {
             username: user.username,
