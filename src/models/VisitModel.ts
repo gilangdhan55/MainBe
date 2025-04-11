@@ -1,6 +1,7 @@
 import { dbVisit as db } from "../config/knex";
 import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman, DateNotClockOut, IEndAbsent
-    ,IVisitHdr, IMasterItemOutlet
+    ,IVisitHdr, IMasterItemOutlet, IParmStartVisit,
+    IParmStartHdr
 } from '../interface/VisitInterface';
  
 export class VisitModel {
@@ -167,5 +168,31 @@ export class VisitModel {
     
         const result = await query; // ✅ Ambil semua hasil 
         return result;
+    }
+
+    static async insertStartVisit(data: IParmStartVisit): Promise<number | null> {
+        try {
+            const result = await  db("app.visit_start").insert(data).returning("id"); // Ambil ID yang baru 
+            
+            return result[0].id; // Kembalikan ID
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        }  
+    }
+
+    static async insertStartHdr(data: IParmStartHdr): Promise<number | null> {
+        try {
+            const result = await  db("app.visit_hdr").insert(data).returning("id"); // Ambil ID yang baru 
+            
+            return result[0].id; // Kembalikan ID
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        }  
+    }
+
+    static async deleteStartHdr(id: number) : Promise<boolean> {
+        return await db("app.visit_hdr").where("id", id).del() > 0;
     }
 }

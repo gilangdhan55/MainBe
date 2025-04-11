@@ -3,33 +3,32 @@ import "tsconfig-paths/register";
 import appMiddleWare from "./middleware/middleware"; 
 // import logger, { requestLogger } from "./utils/logger";
 import routes from "./routes/index";
-import cors from "cors";
+import cors from "cors"; 
+import path from "path";
 
 const app = express();
 app.use(cors());
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true })); 
 const PORT = process.env.PORT || 5000;
-
-// 🔥 Tangani error yang bisa bikin server mati
+ 
 process.on("uncaughtException", (err) => {
     console.error("❌ Uncaught Exception:", err);
-    process.exit(1); // Matikan server dengan kode error
+    process.exit(1);  
 });
 
 process.on("unhandledRejection", (reason) => {
-    console.error("❌ Unhandled Rejection:", reason);
-    // Jangan exit, biar tetap bisa reconnect
+    console.error("❌ Unhandled Rejection:", reason); 
 });
-
-// ✅ Middleware global
+console.log("/uploads",path.join(__dirname, "../uploads")) 
 app.use(appMiddleWare);
-
-// ✅ Tambahkan Middleware untuk menangani koneksi yang mati
+ 
 app.use((_, res, next) => {
     res.setHeader("Connection", "keep-alive");
     next();
 });
+
+app.use("/uploads",  express.static(path.join(__dirname, "../uploads")));
 
 // ✅ Tambahkan Routes setelah middleware
 app.use(routes);

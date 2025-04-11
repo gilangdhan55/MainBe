@@ -111,6 +111,9 @@ const getLevelWeek = (week: number): Array<string> => {
     }
 }
 
- 
-export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate};
+const strToTime = (time: string) : number => {
+    return Math.floor(new Date(time).getTime() / 1000); 
+}
+
+export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate, strToTime};
  

@@ -27,4 +27,8 @@ routeVisit.route("/visit-master-item-outlet")
 .all(verifyToken)
 .post((req: Request, res: Response) => visitControllers.getMasteItemOutlet(req, res));
 
+routeVisit.route("/start-visit")
+.all(verifyToken)
+.post(uploadImg.single("file"),(req: Request, res: Response) => visitControllers.startVisit(req, res));
+
 export default routeVisit;

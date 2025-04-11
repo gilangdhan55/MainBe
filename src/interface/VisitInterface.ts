@@ -99,3 +99,27 @@ export interface IMasterItemOutlet {
     min_outlet_order: number;
     uom_to: string; 
 }
+ 
+export interface IParmStartVisit {
+    visit_hdr_code: string;
+    url: string;
+    note: string;
+    created_by: string;
+    created_date: string;
+    is_upload: string;
+    brand: string;
+}
+ 
+export interface IParmStartHdr {
+    code: string;
+    created_by: string;
+    sales_code: string;
+    sales_name: string;
+    customer_code: string;
+    customer_name: string;
+    address: string;
+    start_date: string;
+    created_date: string;
+    latitude: string;
+    longitude: string;
+}

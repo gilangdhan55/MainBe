@@ -1,12 +1,12 @@
 import { Request, Response } from "express";  
-import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet} from "../interface/VisitInterface"
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
-import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate} from "../helper/Validator";
+import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime} from "../helper/GetWeek";
+import {validateUsername, validateDate, validatePastDate, validStartVisit} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet} from "../helper/KeyRedis";
 import fs from "fs";
-import {UploadAbsent} from "../helper/UploadFile"; 
+import {UploadAbsent, UploadAbsentVisit} from "../helper/UploadFile"; 
 import BaseController from "./BaseController";
  
 
@@ -50,7 +50,7 @@ class VisitController extends BaseController{
     private async checkAbsenToday (username: string, date: string, Schedule: ISchedule[])  {
         let totalVisit      = 0; 
         const totalSchedule = Schedule.length;
-        let visitHdr = [];
+        let visitHdr        = [];
         const visitKeyNow =  keyVisitNow(username, date);
         // await redis.unlink(visitKeyNow); 
     
@@ -201,19 +201,16 @@ class VisitController extends BaseController{
         try {
             const file      = req.file; // File yang di-upload 
             if (!file) res.status(400).json({ message: "File wajib diunggah!" }); 
-            const {username, latitude, longitude, fullname, id, date} = req.body;
+            const {username, latitude, longitude, fullname, id, date, date_default} = req.body;
+           
+            if (!username || !latitude || !longitude || !fullname || !date || !id || !date_default  ||!validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
      
-            if (!username || !latitude || !longitude || !fullname || !date || !id || !validateUsername(username))  res.status(400).json({ message: "Data tidak lengkap!" });
-    
-             // proses upload file 
             const upload = UploadAbsent(file as Express.Multer.File, username); 
             if(!upload.status) res.status(500).json({ message: upload.message, status: false });
-    
-             // Ambil path lengkap dan nama file
-            const filePath = upload?.path; // Path lengkap di server
-            const fileName = upload?.filename; // Nama file (SPG004_250321095128.jpg)
      
-            // kumpulkan data buat insert ke db
+            const filePath = upload?.path; 
+            const fileName = upload?.filename;  
+      
             const data: IEndAbsent = {
                 end_absent: getTimeNow(),
                 latitude_end: latitude,
@@ -228,18 +225,85 @@ class VisitController extends BaseController{
                 res.status(400).json({ status: false, message: "Error updating data" });
                 return;
             }
-            data.date = date;
-            await this.updateAbsenCache(username, data)
-            res.status(200).json({ message: "Clock out berhasil!", status: true, data, version: "v1" });
+            data.date = date_default; 
+            const updateCache = await this.updateAbsenCache(username, data);
+            if(!updateCache) console.log("cache not set"); 
+            res.status(200).json({ message: "Clock out berhasil!", status: true, data: updateCache, version: "v1" });
         } catch (error) {
             console.error("Error absen:", error);
             res.status(500).json({ message: "Terjadi kesalahan server", version: "v1" });   
         }
     }
     
+    async startVisit(req: Request, res: Response) : Promise<void>{
+        try{
+            const file      = req.file; // File yang di-upload 
+            if (!file) res.status(400).json({ message: "File wajib diunggah!" });  
+            const valid     = await validStartVisit(req.body); 
+            if (!valid.success) {
+                res.status(400).json({ message: "Not Valid Data", status: false });
+                return;
+            }
+            const {date, customerCode,customerName, address, salesCode, salesName, latitude, longitude} = valid.data;
+             
+            const upload    = await UploadAbsentVisit(file as Express.Multer.File, salesCode, customerCode);
+
+            if(!upload.status) res.status(500).json({ message: upload.message, status: false });
+  
+            // Ambil path lengkap dan nama file 
+            const filePath = upload?.path; // Path lengkap di server
+            const fileName = upload?.filename;  
+            const hdrCode  = `VS/${salesCode}/${date.replace(/-/g, "")}${strToTime(date)}/${customerCode}`;  
+
+            const startHdr : IParmStartHdr = {
+                code: hdrCode,
+                created_by: salesCode,
+                sales_code: salesCode,
+                sales_name: salesName,
+                customer_code: customerCode,
+                customer_name: customerName,
+                address: address,
+                start_date: getTimeNow(),
+                created_date: getTimeNow(),
+                latitude: latitude.toString(),
+                longitude: longitude.toString(),
+            }
+
+            const insertStartHdr    = await VisitModel.insertStartHdr(startHdr);
+           
+            if(!insertStartHdr) {
+                if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                res.status(400).json({ status: false, message: "Error start visit" });
+                return;
+            } 
+ 
+            const startVisit: IParmStartVisit = {
+                visit_hdr_code: hdrCode,
+                url: `uploads/absen_visit/${salesCode}/absen_visit_mulai/${fileName}`,
+                note: '',
+                created_by: salesCode,
+                created_date: getTimeNow(),
+                is_upload: '',
+                brand: '',
+            } 
+            const insertStart       = await VisitModel.insertStartVisit(startVisit); 
+            if(!insertStart) {
+                if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+                await VisitModel.deleteStartHdr(insertStartHdr); 
+                res.status(400).json({ status: false, message: "Error start visit" });
+                return;
+            }  
+            res.status(200).json({ message: "Success", status: true, version: "v1" });
+        } catch (error) {
+            console.error("Error absen:", error);
+            res.status(500).json({ message: "Terjadi kesalahan server", version: "v1" });   
+        }
+       
+    }
      
     async checkAbsenVisit(req: Request, res: Response): Promise<void>{
         try {
+            // await redis.flushall(); 
             if (Object.keys(req.body).length < 1) {
                 this.sendError(res, "Invalid Request", 400); 
                 return
@@ -262,8 +326,7 @@ class VisitController extends BaseController{
             } 
             
             const data = {version: "v1", data: cached, status: true, isAbsen: Object.keys(cached).length < 1 ? false : true};
-             
-             
+              
             this.sendResponse(res, data, data.isAbsen ? 'Absen found' : 'Absen not found') 
             return;
         } catch (error: unknown) {
@@ -311,19 +374,21 @@ class VisitController extends BaseController{
         return true;
     }
     
-    private async updateAbsenCache(username: string, absent: IEndAbsent) {
+    private async updateAbsenCache(username: string, absent: IEndAbsent) : Promise<boolean | object> {
         const date          = absent.date?.substring(0, 10) || new Date().toISOString().split('T')[0];
         const absenKey      = keyAbsen(username, date);
-        const cachedAbsent  = await redis.get(absenKey);
+        let cachedAbsent    = await redis.get(absenKey); 
         if(!cachedAbsent) return false; 
-        const newAbsent     = JSON.parse(cachedAbsent); 
-        newAbsent.end_absent = absent.end_absent;
-        newAbsent.latitude_end = absent.latitude_end;
-        newAbsent.longitude_end = absent.longitude_end;
-        newAbsent.url_end = absent.url_end;
+
+        const newAbsent         = JSON.parse(cachedAbsent);  
+        newAbsent.end_absent    = absent.end_absent; 
+        newAbsent.time_end      = getTimeHour(absent.end_absent);
+        
         await redis.unlink(absenKey);
         await redis.setex(absenKey, 600, JSON.stringify(newAbsent));
-        return true;
+        cachedAbsent    = await redis.get(absenKey); 
+        if(!cachedAbsent) return false;
+        return newAbsent;
     }
     private sortingVisit(visit: AbsenSalesmanDetail[]) : AbsenSalesmanDetail[] {
         visit.sort((a, b) => {

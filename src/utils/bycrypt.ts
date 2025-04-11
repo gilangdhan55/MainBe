@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";  
+import bcrypt from "bcryptjs";  
 
 const encript = async (password: string): Promise<string> => {
   const saltRounds = 8;
