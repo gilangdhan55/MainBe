@@ -123,3 +123,12 @@ export interface IParmStartHdr {
     latitude: string;
     longitude: string;
 }
+
+export interface IPictVisit {
+    id: number | string;
+    url: string;
+    created_date: Date;
+    note: string;
+    brand: string;
+    is_visit: string;
+}

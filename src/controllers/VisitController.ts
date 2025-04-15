@@ -1,14 +1,14 @@
 import { Request, Response } from "express";  
-import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr} from "../interface/VisitInterface"
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate, validStartVisit} from "../helper/Validator";
+import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode} from "../helper/Validator";
 import redis from "../utils/redis"
-import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet} from "../helper/KeyRedis";
+import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
 import fs from "fs";
 import {UploadAbsent, UploadAbsentVisit} from "../helper/UploadFile"; 
-import BaseController from "./BaseController";
- 
+import {encodeId} from "../utils/hashids";
+import BaseController from "./BaseController";   
 
 class VisitController extends BaseController{
     private static instance: VisitController;
@@ -227,7 +227,7 @@ class VisitController extends BaseController{
             }
             data.date = date_default; 
             const updateCache = await this.updateAbsenCache(username, data);
-            if(!updateCache) console.log("cache not set"); 
+            if(!updateCache) console.error("cache not set"); 
             res.status(200).json({ message: "Clock out berhasil!", status: true, data: updateCache, version: "v1" });
         } catch (error) {
             console.error("Error absen:", error);
@@ -327,7 +327,7 @@ class VisitController extends BaseController{
             
             const data = {version: "v1", data: cached, status: true, isAbsen: Object.keys(cached).length < 1 ? false : true};
               
-            this.sendResponse(res, data, data.isAbsen ? 'Absen found' : 'Absen not found') 
+            this.sendResponse(res, data, data.isAbsen ? 'Absen found' : 'Absen not found');
             return;
         } catch (error: unknown) {
             console.error(error); 
@@ -351,7 +351,7 @@ class VisitController extends BaseController{
         const getCached     = await redis.get(key);
     
         let getOutletItem: IMasterItemOutlet[] = getCached ? JSON.parse(getCached) : (await VisitModel.getMasteItemOutlet(customerCode) ?? []);
-    // pull data ke redis
+  
         if(!getCached){
             await redis.setex(key, 600, JSON.stringify(getOutletItem)); 
         } 
@@ -364,6 +364,38 @@ class VisitController extends BaseController{
         res.json({ message: "success", version: "v1", data: { item: getOutletItem, total: total}, status: true });
     }
     
+    async getPictVisit (req: Request, res: Response) : Promise<void> {
+        try{  
+            
+            const {success, data, errors} = await validCustSalesCode(req.body); 
+            
+            if (!success || !data) { 
+                res.status(400).json({ message: "Not Valid Data", version: "v1", errors, status: false });
+                return;
+            } 
+            const {customerCode, salesCode } = data ; 
+
+            const key           = keyPictVisit(customerCode, salesCode); 
+            const getCached     = await redis.get(key);
+    
+            const cached : IPictVisit[] = getCached ? JSON.parse(getCached) : (await VisitModel.getPitcureVisit(customerCode, salesCode)) ?? [];
+    
+            if (!getCached) { 
+                await redis.setex(key, 600, JSON.stringify(cached));
+            } 
+ 
+            let newData  = cached.map((item) : IPictVisit => {
+                const hashId = encodeId(Number(item.id)); 
+                return {...item, id: hashId}
+            }) 
+  
+            res.json({ message: "success", version: "v1", data: newData, status: true });
+        } catch (error: unknown) {
+            console.error(error); 
+            this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
+        }
+      
+    }
  
     private async createAbsenCache(username: string, absent: AbsenSalesman){
         const date      = absent.start_absent.substring(0, 10);

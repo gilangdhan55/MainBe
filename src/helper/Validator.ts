@@ -45,3 +45,22 @@ export const validStartVisit = (data: IReqStartVisit ) => {
 
     return validStartAbsent.safeParse(data);
 }
+
+interface ICustSalesCode {
+    customerCode: string;
+    salesCode: string;
+}
+
+export const validCustSalesCode = (data: ICustSalesCode) => {
+    const schema = z.object({ 
+        customerCode: z.string().min(1, { message: "Customer Code is Required" }).transform((val) => val.replace(/\s/g, '')), 
+        salesCode: z.string().min(1, { message: "Code sales is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9]/g, '')), 
+    });
+
+    const result = schema.safeParse(data);
+    return {
+        success: result.success,
+        data: result.success ? result.data : null,
+        errors: !result.success ? result.error.flatten().fieldErrors : null
+    }
+}
