@@ -1,7 +1,7 @@
 import { Request, Response } from "express";  
 import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
-import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime} from "../helper/GetWeek";
+import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
 import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
@@ -358,9 +358,15 @@ class VisitController extends BaseController{
     
         const total        = getOutletItem ? getOutletItem.length : 0;
         if(getOutletItem && getOutletItem.length > 100){
-            getOutletItem = getOutletItem.filter((item: IMasterItemOutlet) => levelWeek.includes(item.category)); 
+            getOutletItem = getOutletItem.filter((item: IMasterItemOutlet) => levelWeek.includes(item.category)) 
         }
-    
+
+        if(getOutletItem.length > 0){
+            getOutletItem = getOutletItem.map((item: IMasterItemOutlet) =>  {
+                const hashId = encodeId(Number(item.id));  
+                return {...item, id: hashId}
+            });
+        } 
         res.json({ message: "success", version: "v1", data: { item: getOutletItem, total: total}, status: true });
     }
     
@@ -386,7 +392,7 @@ class VisitController extends BaseController{
  
             let newData  = cached.map((item) : IPictVisit => {
                 const hashId = encodeId(Number(item.id)); 
-                return {...item, id: hashId}
+                return {...item, id: hashId, dateFormat: formatDateDMY(item.created_date.toString()), timeFormat: getTimeHour(item.created_date.toString())}
             }) 
   
             res.json({ message: "success", version: "v1", data: newData, status: true });

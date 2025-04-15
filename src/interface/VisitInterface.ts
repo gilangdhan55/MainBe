@@ -88,7 +88,7 @@ export interface IVisitHdr {
 }
 
 export interface IMasterItemOutlet {
-    id: number;
+    id: number | string;
     code_item: number;
     item_code: string;
     name_item: string;
@@ -131,4 +131,6 @@ export interface IPictVisit {
     note: string;
     brand: string;
     is_visit: string;
+    dateFormat?: string;
+    timeFormat?: string;
 }
