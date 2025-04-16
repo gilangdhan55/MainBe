@@ -390,7 +390,7 @@ class VisitController extends BaseController{
                 await redis.setex(key, 600, JSON.stringify(cached));
             } 
  
-            let newData  = cached.map((item) : IPictVisit => {
+            const newData  = cached.map((item) : IPictVisit => {
                 const hashId = encodeId(Number(item.id)); 
                 return {...item, id: hashId, dateFormat: formatDateDMY(item.created_date.toString()), timeFormat: getTimeHour(item.created_date.toString())}
             }) 
