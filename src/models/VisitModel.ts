@@ -1,7 +1,9 @@
 import { dbVisit as db } from "../config/knex";
 import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman, DateNotClockOut, IEndAbsent
     ,IVisitHdr, IMasterItemOutlet, IParmStartVisit,IPictVisit,
-    IParmStartHdr
+    IParmStartHdr,
+    IEndAbsentVisit,
+    IVisitEnd
 } from '../interface/VisitInterface';
  
 export class VisitModel {
@@ -135,7 +137,7 @@ export class VisitModel {
             "address",
             "note",
             "code",
-            db.raw("to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') AS start_visit"),
+            db.raw("to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') AS start_date"),
             db.raw("to_char(ended_date, 'YYYY-MM-DD HH24:MI:SS') AS end_visit"), 
         )
         .where("sales_code", username)
@@ -223,7 +225,25 @@ export class VisitModel {
           } catch (error) {
             console.error("Error fetching visitHdr:", error);
             return [];
-          }
-          
+          } 
+    }
+
+    static async updateVisitHdr(data:IEndAbsentVisit, id: number): Promise<boolean> {
+        try {  
+            return (await db("app.visit_hdr").where("id", id).update(data)) > 0;
+        } catch (error) {
+            console.error("Error updating data:", error);
+            return false;
+        }
+    }
+
+    static async insertEndVisit(data: IVisitEnd): Promise<number | null> {
+        try {
+            const result = await  db("app.visit_end").insert(data).returning("id"); // Ambil ID yang baru  
+            return result[0].id;  
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        }  
     }
 }

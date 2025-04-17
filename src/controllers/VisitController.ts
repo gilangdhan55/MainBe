@@ -1,14 +1,14 @@
 import { Request, Response } from "express";  
-import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit} from "../interface/VisitInterface"
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode} from "../helper/Validator";
+import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
 import fs from "fs";
 import {UploadAbsent, UploadAbsentVisit} from "../helper/UploadFile"; 
-import {encodeId} from "../utils/hashids";
-import BaseController from "./BaseController";   
+import {decodeId, encodeId} from "../utils/hashids";
+import BaseController from "./BaseController";     
 
 class VisitController extends BaseController{
     private static instance: VisitController;
@@ -286,19 +286,123 @@ class VisitController extends BaseController{
                 is_upload: '',
                 brand: '',
             } 
+
             const insertStart       = await VisitModel.insertStartVisit(startVisit); 
             if(!insertStart) {
                 if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
                 await VisitModel.deleteStartHdr(insertStartHdr); 
                 res.status(400).json({ status: false, message: "Error start visit" });
                 return;
-            }  
-            res.status(200).json({ message: "Success", status: true, version: "v1" });
+            }   
+            // create cached and set cached 
+            const data : IVisitHdr = {
+                id: insertStartHdr,
+                code: hdrCode,
+                sales_code: salesCode,
+                sales_name: salesName,
+                customer_code: customerCode,
+                customer_name: customerName,
+                address: address, 
+                start_date: startHdr.start_date,
+                end_visit: null,
+            }
+            const key   = keyAbsentVisit(salesCode, customerCode, date); 
+            await redis.setex(key, 600, JSON.stringify(data));
+            data.id = await encodeId(Number(data.id));
+
+            startVisit.id           = insertStart;
+            startVisit.is_visit     = "start_visit";
+            startVisit.timeFormat   = getTimeHour(startVisit.created_date.toString());
+            startVisit.dateFormat   = formatDateDMY(startVisit.created_date.toString());
+             
+            const newPict           = await this.updatePictureVisit(customerCode, salesCode, startVisit); 
+            newPict.id              = await encodeId(Number(startVisit.id));
+
+            res.status(200).json({ message: "Berhasil mulai visit", data, newPict, status: true, version: "v1" });
         } catch (error) {
             console.error("Error absen:", error);
             res.status(500).json({ message: "Terjadi kesalahan server", version: "v1" });   
-        }
+        } 
+    }
+
+    async endVisit(req: Request, res: Response) : Promise<void>{
+        try{
+            const file      = req.file; // File yang di-upload 
+            if (!file) res.status(400).json({ message: "File wajib diunggah!" });  
+           
+            const valid     = await validEndVisit(req.body); 
+            if (!valid.success) { 
+                res.status(400).json({ message: "Not Valid Data", status: false });
+                return;
+            }
+            const {date, customerCode,salesCode,latitude, longitude, id, code} = valid.data;
        
+            const upload    = await UploadAbsentVisit(file as Express.Multer.File, salesCode, customerCode, "absen_visit_selesai");
+            const filePath  = upload?.path; // Path lengkap di server 
+            const fileName = upload?.filename;  
+
+            if(!upload.status) res.status(500).json({ message: upload.message, status: false });
+  
+            const idDecode = decodeId(id);
+       
+            // update visit_hdr dahulu
+            const updateHdr : IEndAbsentVisit = {
+                latitude_end : latitude.toString(),
+                longitude_end: longitude.toString(), 
+                ended_date: getTimeNow(),
+            }
+
+            const updateVisitHdr = await VisitModel.updateVisitHdr(updateHdr, Number(idDecode));
+
+            if(!updateVisitHdr && filePath && fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                res.status(400).json({ message: "Error end visit", status: false });
+                return;
+            }
+
+            // insert visit_end
+            const endVisit: IVisitEnd = {  
+                visit_hdr_code: code,
+                url: `uploads/absen_visit/${salesCode}/absen_visit_selesai/${fileName}`,
+                note: '',
+                created_by: salesCode,
+                created_date: getTimeNow(),
+                is_upload: '',
+                brand: '',
+            }
+
+            const insert = await VisitModel.insertEndVisit(endVisit);
+           
+            if(!insert && filePath && fs.existsSync(filePath)){
+                await VisitModel.updateVisitHdr({latitude_end: '', longitude_end: '', ended_date: null }, Number(idDecode));
+                fs.unlinkSync(filePath);
+                res.status(400).json({ message: "Error end visit", status: false });
+                return;
+            }
+
+            const key           = keyAbsentVisit(salesCode, customerCode, date); 
+            const getCached     = await redis.get(key);
+    
+            const cached: IVisitHdr = getCached ? JSON.parse(getCached) : (await VisitModel.checkVisitHdr(salesCode, date, customerCode)) ?? {};
+    
+            if(cached){
+                cached.end_visit = getTimeNow();
+                await redis.setex(key, 600, JSON.stringify(cached)); 
+            }
+
+            endVisit.id           = insert ?? '';
+            endVisit.is_visit     = "start_visit";
+            endVisit.timeFormat   = getTimeHour(endVisit.created_date.toString());
+            endVisit.dateFormat   = formatDateDMY(endVisit.created_date.toString());
+             
+            const newPict           = await this.updatePictureVisit(customerCode, salesCode, endVisit); 
+            newPict.id              = await encodeId(Number(newPict.id));
+
+            res.status(200).json({ message: "Berhasil menyelesaikan visit", status: true,newPict, data: cached, version: "v1" });
+        } catch (error) {
+            console.error("Error absen:", error);
+            res.status(500).json({ message: "Terjadi kesalahan server", version: "v1" });   
+        } 
     }
      
     async checkAbsenVisit(req: Request, res: Response): Promise<void>{
@@ -307,15 +411,12 @@ class VisitController extends BaseController{
             if (Object.keys(req.body).length < 1) {
                 this.sendError(res, "Invalid Request", 400); 
                 return
-            }
-    
-            const { username, date, customerCode } = req.body;
-    
+            } 
+            const { username, date, customerCode } = req.body; 
             if ((!username || !validateUsername(username)) || (!date || !validateDate(date)) || !customerCode) {  
                 this.sendError(res, "Invalid Request", 400); 
-                 return;
-            }
-    
+                return;
+            } 
             const key           = keyAbsentVisit(username, customerCode, date); 
             const getCached     = await redis.get(key);
     
@@ -323,9 +424,14 @@ class VisitController extends BaseController{
     
             if (!getCached) { 
                 await redis.setex(key, 600, JSON.stringify(cached));
+            }  
+            if(Object.keys(cached).length > 0){
+                cached.id = await encodeId(Number(cached.id));
             } 
-            
-            const data = {version: "v1", data: cached, status: true, isAbsen: Object.keys(cached).length < 1 ? false : true};
+            const data = {
+                version: "v1", 
+                data: cached, 
+                status: true, isAbsen: Object.keys(cached).length < 1 ? false : true};
               
             this.sendResponse(res, data, data.isAbsen ? 'Absen found' : 'Absen not found');
             return;
@@ -371,10 +477,8 @@ class VisitController extends BaseController{
     }
     
     async getPictVisit (req: Request, res: Response) : Promise<void> {
-        try{  
-            
-            const {success, data, errors} = await validCustSalesCode(req.body); 
-            
+        try{   
+            const {success, data, errors} = await validCustSalesCode(req.body);  
             if (!success || !data) { 
                 res.status(400).json({ message: "Not Valid Data", version: "v1", errors, status: false });
                 return;
@@ -439,6 +543,28 @@ class VisitController extends BaseController{
             return new Date(a.start_visit).getTime() - new Date(b.start_visit).getTime();
         }); 
         return visit;
+    }
+  
+    private async updatePictureVisit(customerCode: string, salesCode: string, data: IParmStartVisit)  { 
+        const key           = keyPictVisit(customerCode, salesCode); 
+        const getCached     = await redis.get(key);
+
+        const cached : IPictVisit[] = getCached ? JSON.parse(getCached) : (await VisitModel.getPitcureVisit(customerCode, salesCode)) ?? []; 
+        const preData = {
+            id: data.id,
+            url: data.url,
+            created_date: data.created_date,
+            note: data.note,
+            brand: data.brand,
+            is_visit: data.is_visit,
+            dateFormat: data.dateFormat,
+            timeFormat: data.timeFormat,
+        }
+        let newCached = [preData,...cached];
+        newCached = newCached.length > 10 ? newCached.slice(0, 10) : newCached;
+        await redis.setex(key, 600, JSON.stringify(newCached));
+
+        return preData;
     }
 }
 

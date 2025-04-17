@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon",
-    "build": "npx eslint src --ext .ts && tsc",
+    "build": "pnpm exec eslint src --ext .ts",
     "start": "node dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -33,19 +33,17 @@ const UploadAbsent = (file: Express.Multer.File, username: string): UploadRespon
 const UploadAbsentVisit = async (
     file: Express.Multer.File,
     username: string,
-    customerCode: string
-  ): Promise<UploadResponseAbsen> => {
-    const uploadDir = path.join(__dirname, "../../uploads/absen_visit", username, "/absen_visit_mulai");
+    customerCode: string,
+    isStart: string = "absen_visit_mulai"
+  ): Promise<UploadResponseAbsen> => { 
+    const uploadDir = path.join(__dirname,`../../uploads/absen_visit/${username}/${isStart}`); 
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
   
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-  
-    const now = new Date();
+    const now     = new Date();
     const dateStr = now
-      .toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
-      .replace(/[^\d]/g, "")
-      .slice(0, 12);
+    .toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })
+    .replace(/[^\d]/g, "")
+    .slice(0, 12);
    
     const filename = `${username}-${dateStr}-${customerCode}.webp`; // ubah ke jpg biar lebih mudah dikompres
     const filePath = path.join(uploadDir, filename);

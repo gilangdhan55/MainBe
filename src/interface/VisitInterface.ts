@@ -76,15 +76,15 @@ export interface UploadResponseAbsen {
 
 
 export interface IVisitHdr {
-    id: number;
+    id: number | string;
     code: string;
     sales_code: string;
     sales_name: string;
     customer_code: string;
     customer_name: string;
     address: string; 
-    start_date: Date;
-    ended_date: Date;
+    start_date: Date | string;
+    end_visit: Date | string | null;
 }
 
 export interface IMasterItemOutlet {
@@ -108,6 +108,10 @@ export interface IParmStartVisit {
     created_date: string;
     is_upload: string;
     brand: string;
+    id?: number | string;
+    is_visit?: string;
+    dateFormat?: string;
+    timeFormat?: string;
 }
  
 export interface IParmStartHdr {
@@ -134,3 +138,23 @@ export interface IPictVisit {
     dateFormat?: string;
     timeFormat?: string;
 }
+
+export interface IEndAbsentVisit {
+    latitude_end: string; 
+    longitude_end: string;
+    ended_date: string | null;
+}
+
+export interface IVisitEnd {
+    visit_hdr_code: string;
+    url: string;
+    note: string;
+    created_by: string;
+    created_date: string;
+    is_upload: string;
+    brand: string;
+    id?: number | string;
+    is_visit?: string;
+    dateFormat?: string;
+    timeFormat?: string;
+} 

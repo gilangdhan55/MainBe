@@ -31,6 +31,10 @@ routeVisit.route("/start-visit")
 .all(verifyToken)
 .post(uploadImg.single("file"),(req: Request, res: Response) => visitControllers.startVisit(req, res));
 
+routeVisit.route("/end-visit")
+.all(verifyToken)
+.post(uploadImg.single("file"),(req: Request, res: Response) => visitControllers.endVisit(req, res));
+
 routeVisit.route("/get-pict-visit")
 .all(verifyToken)
 .post((req: Request, res: Response) => visitControllers.getPictVisit(req, res));
