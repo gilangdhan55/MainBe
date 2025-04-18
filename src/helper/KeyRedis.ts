@@ -18,4 +18,8 @@ const keyItemVisitOutlet = (customerCode: string, week: number, date: string): s
     return `item_visit_outlet:${customerCode}:${week}:${date}`
 }
 
-export {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet};
+const keyPictVisit = (customerCode: string, salesCode: string) : string => {
+    return `pictVisit:${customerCode}:${salesCode}`
+}
+
+export {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet,keyPictVisit};

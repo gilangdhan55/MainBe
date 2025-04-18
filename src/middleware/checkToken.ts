@@ -21,8 +21,7 @@ if (!process.env.JWT_SECRET) {
 // Middleware verifikasi token
 export const verifyToken = (req: CustomRequest, res: Response, next: NextFunction): void => { 
     try {
-        const token = req.headers.authorization?.split(" ")[1];
-        
+        const token = req.headers.authorization?.split(" ")[1]; 
         if (!token) {
             res.status(401).json({ message: "Unauthorized - No Token Provided" });
             return;
@@ -32,10 +31,8 @@ export const verifyToken = (req: CustomRequest, res: Response, next: NextFunctio
 
         if (!SECRET_KEY) {
             throw new Error("JWT_SECRET is not set. Please define it in your environment variables.");
-        }
-        console.log(token)
-        const decoded = jwt.verify(token, SECRET_KEY) as DecodedUser; // ini yang bakal lempar TokenExpiredError kalo token udah expired
-
+        } 
+        const decoded = jwt.verify(token, SECRET_KEY) as DecodedUser; // ini yang bakal lempar TokenExpiredError kalo token udah expired 
         req.user = decoded; 
         next();
     } catch (error) {

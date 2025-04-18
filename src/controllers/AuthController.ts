@@ -1,6 +1,6 @@
 import { Request, Response } from "express"; 
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt"; 
+import bcrypt from "bcryptjs"; 
 import {AuthModel} from "../models/AuthModel";
 import {encript} from "../utils/bycrypt";
 import redis from "../config/redis"; // ⬅️ Cukup import ini!

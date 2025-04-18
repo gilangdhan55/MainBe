@@ -30,12 +30,16 @@ const fullFormattedDate = (formatter: Intl.DateTimeFormat, now: Date) : string =
 
 const dateFormattedDate = (formatter: Intl.DateTimeFormat, now: Date) : string => {
     const parts = chunckDate(formatter, now); 
-    return `${parts.year}-${parts.month}-${parts.day}`; 
+    return `${parts.year}-${parts.month}-${parts.day}`; // 2023-01-01
 }
 
+const dateFormattedDate2 = (formatter: Intl.DateTimeFormat, now: Date) : string => {  
+    const parts = chunckDate(formatter, now); 
+    return `${parts.day}-${parts.month}-${parts.year}`; // 01-01-2023
+} 
 const timeFormattedDateHour = (formatter: Intl.DateTimeFormat, now: Date) : string => {
     const parts = chunckDate(formatter, now); 
-    return `${parts.hour}:${parts.minute}`; 
+    return `${parts.hour}:${parts.minute}`;  // 13:30
 }
 
 const chunckDate = (formatter: Intl.DateTimeFormat, now: Date) : Record<string, string> => {
@@ -88,6 +92,14 @@ const getTimeHour = (date: string): string => {
     return initFormat;
 }
 
+const formatDateDMY = (date: string): string => {
+    const now        = new Date(date);
+    const formatter  = getFullFormatter();
+    const initFormat = dateFormattedDate2(formatter, now);
+    //d-m-y
+    return initFormat;
+}
+
 const getFullDateNoTme = (date?: string): string => {
     const now        = date ? new Date(date) : new Date(); 
     const formatter  = getFullFormatter(); 
@@ -111,6 +123,9 @@ const getLevelWeek = (week: number): Array<string> => {
     }
 }
 
- 
-export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate};
+const strToTime = (time: string) : number => {
+    return Math.floor(new Date(time).getTime() / 1000); 
+}
+
+export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate, strToTime, dateFormattedDate2, formatDateDMY};
  

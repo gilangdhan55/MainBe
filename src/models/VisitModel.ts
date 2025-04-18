@@ -1,6 +1,9 @@
 import { dbVisit as db } from "../config/knex";
 import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman, DateNotClockOut, IEndAbsent
-    ,IVisitHdr, IMasterItemOutlet
+    ,IVisitHdr, IMasterItemOutlet, IParmStartVisit,IPictVisit,
+    IParmStartHdr,
+    IEndAbsentVisit,
+    IVisitEnd
 } from '../interface/VisitInterface';
  
 export class VisitModel {
@@ -134,7 +137,7 @@ export class VisitModel {
             "address",
             "note",
             "code",
-            db.raw("to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') AS start_visit"),
+            db.raw("to_char(start_date, 'YYYY-MM-DD HH24:MI:SS') AS start_date"),
             db.raw("to_char(ended_date, 'YYYY-MM-DD HH24:MI:SS') AS end_visit"), 
         )
         .where("sales_code", username)
@@ -167,5 +170,80 @@ export class VisitModel {
     
         const result = await query; // ✅ Ambil semua hasil 
         return result;
+    }
+
+    static async insertStartVisit(data: IParmStartVisit): Promise<number | null> {
+        try {
+            const result = await  db("app.visit_start").insert(data).returning("id"); // Ambil ID yang baru 
+            
+            return result[0].id; // Kembalikan ID
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        }  
+    }
+
+    static async insertStartHdr(data: IParmStartHdr): Promise<number | null> {
+        try {
+            const result = await  db("app.visit_hdr").insert(data).returning("id"); // Ambil ID yang baru 
+            
+            return result[0].id; // Kembalikan ID
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        }  
+    }
+
+    static async deleteStartHdr(id: number) : Promise<boolean> {
+        return await db("app.visit_hdr").where("id", id).del() > 0;
+    }
+    
+    static async getPitcureVisit(customerCode: string, salesCode: string) : Promise<IPictVisit[] | null> {
+        try {
+            const query = `
+              (
+                SELECT id, url, to_char(created_date, 'YYYY-MM-DD HH24:MI:SS') AS created_date, note, brand, 'start_visit' as is_visit
+                FROM app.visit_start 
+                WHERE created_by = ? AND trim(visit_hdr_code) LIKE trim(?)
+                ORDER BY id DESC   
+                LIMIT 5
+              )
+              UNION
+              (
+                SELECT id, url, to_char(created_date, 'YYYY-MM-DD HH24:MI:SS') AS created_date, note, brand, 'end_visit' as is_visit
+                FROM app.visit_end 
+                WHERE created_by = ? AND trim(visit_hdr_code) LIKE trim(?) 
+                ORDER BY id DESC   
+                LIMIT 5
+              ) 
+              ORDER BY created_date DESC `;
+          
+            const bindKey = `%${customerCode}%`;  
+            const result = await db.raw(query, [salesCode, bindKey,salesCode, bindKey]);
+          
+            return result.rows || []; 
+          } catch (error) {
+            console.error("Error fetching visitHdr:", error);
+            return [];
+          } 
+    }
+
+    static async updateVisitHdr(data:IEndAbsentVisit, id: number): Promise<boolean> {
+        try {  
+            return (await db("app.visit_hdr").where("id", id).update(data)) > 0;
+        } catch (error) {
+            console.error("Error updating data:", error);
+            return false;
+        }
+    }
+
+    static async insertEndVisit(data: IVisitEnd): Promise<number | null> {
+        try {
+            const result = await  db("app.visit_end").insert(data).returning("id"); // Ambil ID yang baru  
+            return result[0].id;  
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return null;
+        }  
     }
 }
