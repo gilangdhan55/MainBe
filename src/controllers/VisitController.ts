@@ -35,8 +35,7 @@ class VisitController extends BaseController{
         const visitHdr = !cachedVisitNow ? await VisitModel.getVisitHdrAbsent(username, date) || [] : JSON.parse(cachedVisitNow);
         if(!cachedVisitNow){
             await redis.setex(visitKeyNow, 600, JSON.stringify(visitHdr));
-        } 
-    
+        }  
         // Proses daftar kunjungan
         const visit =  visitHdr.map((visit: AbsenSalesmanDetail) => {  
             const status = visit?.start_visit ? (!visit?.end_visit ? 1 : (visit?.end_visit && visit?.end_visit !== '0001-01-01 00:00:00' ? 2 : 3) ): 0; 
@@ -317,7 +316,8 @@ class VisitController extends BaseController{
              
             const newPict           = await this.updatePictureVisit(customerCode, salesCode, startVisit); 
             newPict.id              = await encodeId(Number(startVisit.id));
-
+            const absenKey          = keyVisitNow(salesCode, date); 
+            await redis.unlink(absenKey); 
             res.status(200).json({ message: "Berhasil mulai visit", data, newPict, status: true, version: "v1" });
         } catch (error) {
             console.error("Error absen:", error);
@@ -380,24 +380,17 @@ class VisitController extends BaseController{
                 return;
             }
 
-            const key           = keyAbsentVisit(salesCode, customerCode, date); 
-            const getCached     = await redis.get(key);
-    
-            const cached: IVisitHdr = getCached ? JSON.parse(getCached) : (await VisitModel.checkVisitHdr(salesCode, date, customerCode)) ?? {};
-    
-            if(cached){
-                cached.end_visit = getTimeNow();
-                await redis.setex(key, 600, JSON.stringify(cached)); 
-            }
-
+            const cached          = await this.updateCacheVisitHdr(salesCode, customerCode, date);
+             
             endVisit.id           = insert ?? '';
             endVisit.is_visit     = "start_visit";
             endVisit.timeFormat   = getTimeHour(endVisit.created_date.toString());
             endVisit.dateFormat   = formatDateDMY(endVisit.created_date.toString());
              
-            const newPict           = await this.updatePictureVisit(customerCode, salesCode, endVisit); 
-            newPict.id              = await encodeId(Number(newPict.id));
-
+            const newPict         = await this.updatePictureVisit(customerCode, salesCode, endVisit); 
+            newPict.id            = await encodeId(Number(newPict.id));
+            const absenKey        = keyVisitNow(salesCode, date); 
+            await redis.unlink(absenKey); 
             res.status(200).json({ message: "Berhasil menyelesaikan visit", status: true,newPict, data: cached, version: "v1" });
         } catch (error) {
             console.error("Error absen:", error);
@@ -506,6 +499,17 @@ class VisitController extends BaseController{
         }
       
     }
+
+    async saveStocKVisit (req: Request, res: Response) : Promise<void> {
+        try {
+            if(Object.keys(req.body).length < 1) res.status(400).json({ message: "Invalid Request", status: false });
+            const {header, detail} = req.body;
+            if(!header || !detail) res.status(400).json({ message: "Invalid Request", status: false });
+        } catch (error : unknown) {
+            console.error(error); 
+            this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
+        } 
+    }
  
     private async createAbsenCache(username: string, absent: AbsenSalesman){
         const date      = absent.start_absent.substring(0, 10);
@@ -566,6 +570,20 @@ class VisitController extends BaseController{
 
         return preData;
     }
+
+    private async updateCacheVisitHdr(salesCode: string, customerCode: string, date: string) : Promise<IVisitHdr> {
+        const key           = keyAbsentVisit(salesCode, customerCode, date); 
+        const getCached     = await redis.get(key);
+
+        const cached: IVisitHdr = getCached ? JSON.parse(getCached) : (await VisitModel.checkVisitHdr(salesCode, date, customerCode)) ?? {};
+
+        if(cached){
+            cached.end_visit = getTimeNow();
+            await redis.setex(key, 600, JSON.stringify(cached)); 
+        } 
+        return cached;
+    }
+ 
 }
 
  

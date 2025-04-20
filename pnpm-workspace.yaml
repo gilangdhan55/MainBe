@@ -1,4 +1,4 @@
 onlyBuiltDependencies:
   - sharp
-#packages:
- # - .
+packages:
+  - .

@@ -39,4 +39,8 @@ routeVisit.route("/get-pict-visit")
 .all(verifyToken)
 .post((req: Request, res: Response) => visitControllers.getPictVisit(req, res));
 
+
+routeVisit.route("/save-stock-visit")
+.all(verifyToken) 
+.post((req: Request, res: Response) => visitControllers.saveStocKVisit(req, res));
 export default routeVisit;
