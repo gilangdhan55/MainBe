@@ -1,8 +1,8 @@
 import { Request, Response } from "express";  
-import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd} from "../interface/VisitInterface"
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd, IDetailStockVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit} from "../helper/Validator";
+import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
 import fs from "fs";
@@ -508,17 +508,37 @@ class VisitController extends BaseController{
             }  
             const {header, data} = req.body;
            
-            if(!header || !data) {
+            if(!header || !data || header.length < 1 || Object.keys(data).length < 1){
                 this.sendError(res, "Invalid Request", 400);    
                 return;
             }
 
             // validasi
+            const validHeader   = await validHeaderStock(header);
+            const detail        = await validDetailStockVisit(
+                data.map((item: IDetailStockVisit) => {
+                    return {...item, created_date: getTimeNow()}
+                }
+            ));
+             
+            if(!validHeader.success || !detail.success){
+                this.sendError(res, "Invalid Request", 400, validHeader.errors || detail.errors);
+                return;
+            }
+            const paramData = detail.data ? detail.data : [];
             
+            const save = await VisitModel.saveStocKVisit(paramData);
+             console.log(save, paramData)
+            if(save.length < 1){
+                this.sendError(res, `Failed save stock ${validHeader.data?.nameItem}`, 400);
+                return;
+            }
 
-            res.status(200).json({message: "hello world"})
+            this.sendResponse(res, save, `Success save stock ${validHeader.data?.nameItem}`); 
+            return
         } catch (error : unknown) { 
             this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
+            return;
         } 
     }
  

@@ -158,3 +158,29 @@ export interface IVisitEnd {
     dateFormat?: string;
     timeFormat?: string;
 } 
+
+export interface IReqStartVisit {
+    date: string;
+    customerCode: string;
+    customerName: string;
+    address: string;
+    salesCode: string;
+    salesName: string;
+    latitude: string;
+    longitude: string;
+}
+
+export interface IDetailStockVisit {
+    visit_hdr_code: string;
+    name_item: string;
+    code_item: string;
+    item_code: string;
+    created_by: string;
+    customer_code: string;
+    is_problem: string;
+    expired_date: string;
+    created_date?: string;
+    price: string;
+    qty: number;
+    note: string;
+}

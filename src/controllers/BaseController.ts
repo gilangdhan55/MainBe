@@ -5,10 +5,11 @@ class BaseController {
         console.log("Base Controller");
     }
 
-    protected sendResponse(res: Response, data: any, message: string = 'Success') {
+    protected sendResponse(res: Response, data: any, message: string = 'Success', status: boolean = true) {
         res.status(200).json({
           message,
           data,
+          status
         });
     }
     
@@ -19,11 +20,12 @@ class BaseController {
         statusCode: number = 400,
         data: any = [],
     ) {
-        const response: any = { message: error };
+        const response: any = { message: error, status: false };
       
         if (data && data.length !== 0) {
           response.data = data;
         }
+        
       
         res.status(statusCode).json(response);
     } 

@@ -10,5 +10,6 @@
     "incremental": true, // Menggunakan build incremental agar proses compile lebih cepat
     "noUnusedLocals": true, // Menyaring variabel yang tidak digunakan
     "noUnusedParameters": true,// Menyaring parameter yang tidak digunakan  
-  }
+  },
+  "include": ["src"]
 }

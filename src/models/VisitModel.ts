@@ -3,7 +3,8 @@ import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman,
     ,IVisitHdr, IMasterItemOutlet, IParmStartVisit,IPictVisit,
     IParmStartHdr,
     IEndAbsentVisit,
-    IVisitEnd
+    IVisitEnd,
+    IDetailStockVisit
 } from '../interface/VisitInterface';
  
 export class VisitModel {
@@ -246,4 +247,21 @@ export class VisitModel {
             return null;
         }  
     }
+
+    static async saveStocKVisit(data: IDetailStockVisit[] | []): Promise<Array<string>> {
+        try {
+            const result = await db("app.visit_stock")
+                .insert(data)
+                .returning('id'); 
+            
+            // result = [{ id: '123' }] -> ambil value-nya
+            const ids = result.map((row) => row.id.toString());
+            return ids;
+    
+        } catch (error) {
+            console.error("Error inserting data:", error);
+            return [];
+        }
+    }
+    
 }

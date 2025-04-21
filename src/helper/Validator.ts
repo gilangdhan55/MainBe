@@ -1,6 +1,7 @@
 import validator from "validator";
 import {z} from "zod";
-
+import {IDetailStockVisit, IReqStartVisit} from "../interface/VisitInterface";
+import {decodeId} from "../utils/hashids";
 export const validateUsername = (username: string): boolean => {
     return validator.isAlphanumeric(username);
 };
@@ -15,18 +16,7 @@ export const validatePastDate = (date: string): boolean => {
   
     return inputDate < newDate; 
 }
-
-interface IReqStartVisit {
-    date: string;
-    customerCode: string;
-    customerName: string;
-    address: string;
-    salesCode: string;
-    salesName: string;
-    latitude: string;
-    longitude: string;
-}
-
+  
 export const validStartVisit = (data: IReqStartVisit ) => {
     const validStartAbsent = z.object({
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date format must be YYYY-MM-DD" }),
@@ -73,6 +63,69 @@ export const validCustSalesCode = (data: { customerCode: string; salesCode: stri
     });
 
     const result = schema.safeParse(data);
+    return {
+        success: result.success,
+        data: result.success ? result.data : null,
+        errors: !result.success ? result.error.flatten().fieldErrors : null
+    }
+}
+
+interface IHeaderStockVisit {
+    id: number | string;
+    codeItem: string;
+    barcode: string;
+    nameItem: string;
+    code: string;
+    customerCode: string;
+    salesCode: string; 
+}
+ 
+export const validHeaderStock = (data: IHeaderStockVisit) => {
+    const schema = z.object({ 
+        id: z.string().min(1, { message: "ID is Required" }).transform((val) => decodeId(val.replace(/\s/g, ''))),
+        codeItem: z.string().min(1, { message: "Code Item is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9]/g, '')),
+        barcode: z.string().min(1, { message: "Barcode is Required" }).transform((val) => val.replace(/[^0-9]/g, ''))
+        .refine((val) => val.length > 0, {
+            message: "Barcode harus berupa angka"
+        }), 
+        nameItem: z.string().min(1, { message: "Item is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9\s\-#&()%.,+]/g, '').trim()),
+        code: z.string().min(1, { message: "Code is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9/]/g, '')),
+        customerCode: z.string().min(1, { message: "Customer Code is Required" }).transform((val) => val.replace(/\s/g, '')),
+        salesCode: z.string().min(1, { message: "Code sales is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9]/g, '')),
+    });
+
+    const result = schema.safeParse(data);
+    return {
+        success: result.success,
+        data: result.success ? result.data : null,
+        errors: !result.success ? result.error.flatten().fieldErrors : null
+    }
+}
+ 
+
+export const validDetailStockVisit = (data: IDetailStockVisit) => {
+    const schema = z.object({
+        qty: z.number().min(1, { message: "Qty is Required" }).transform((val) => Number(val)),        
+        price: z.string().min(1, { message: "Price is Required" }).transform((val) => val.replace(".", "").trim()),    
+        note: z.string().min(1, { message: "Note is Required" }).transform((val) => val.trim()),
+        visit_hdr_code: z.string().min(1, { message: "Code is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9/]/g, '')),
+        name_item: z.string().min(1, { message: "Item is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9\s\-#&()%.,+]/g, '').trim()),
+        item_code: z.string().min(1, { message: "Code Item is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9]/g, '')),
+        code_item: z.string().min(1, { message: "Barcode is Required" }).transform((val) => val.replace(/[^0-9]/g, ''))
+          .refine((val) => val.length > 0, {
+            message: "Barcode harus berupa angka"
+          }),  
+        created_by: z.string().min(1, { message: "Code sales is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9]/g, '')),
+        expired_date: z.string().transform((val) => val.trim()), // Use z.string() instead of z.string()
+        created_date: z.string().transform((val) => val.trim()), // Same here, transform to Date
+        customer_code: z.string().min(1, { message: "Customer Code is Required" }).transform((val) => val.replace(/\s/g, '')),
+        is_problem: z.string().min(1, { message: "is_problem is Required" }).max(1, { message: "is_problem must be y or n" })
+          .refine((val) => ['y', 'n'].includes(val), { message: "is_problem must be 'y' or 'n'" }) // Custom validation for y or n
+    });
+      
+
+    const result = z.array(schema).safeParse(data);
+
     return {
         success: result.success,
         data: result.success ? result.data : null,
