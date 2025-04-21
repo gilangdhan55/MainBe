@@ -502,11 +502,22 @@ class VisitController extends BaseController{
 
     async saveStocKVisit (req: Request, res: Response) : Promise<void> {
         try {
-            if(Object.keys(req.body).length < 1) res.status(400).json({ message: "Invalid Request", status: false });
-            const {header, detail} = req.body;
-            if(!header || !detail) res.status(400).json({ message: "Invalid Request", status: false });
-        } catch (error : unknown) {
-            console.error(error); 
+            if(Object.keys(req.body).length < 1){
+                this.sendError(res, "Invalid Request", 400);
+                return;
+            }  
+            const {header, data} = req.body;
+           
+            if(!header || !data) {
+                this.sendError(res, "Invalid Request", 400);    
+                return;
+            }
+
+            // validasi
+            
+
+            res.status(200).json({message: "hello world"})
+        } catch (error : unknown) { 
             this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
         } 
     }
