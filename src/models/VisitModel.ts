@@ -4,7 +4,8 @@ import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman,
     IParmStartHdr,
     IEndAbsentVisit,
     IVisitEnd,
-    IDetailStockVisit
+    IDetailStockVisit,
+    lastCheckStockVisit
 } from '../interface/VisitInterface';
  
 export class VisitModel {
@@ -262,6 +263,27 @@ export class VisitModel {
             console.error("Error inserting data:", error);
             return [];
         }
+    }
+
+   
+
+    static async getLastInputStock(customerCode: string, date: string, salesCode: string) : Promise<lastCheckStockVisit[]|[]> {
+        console.log(customerCode, date, salesCode);
+        const query = db("app.visit_stock")
+        .select(
+            "item_code AS itemCode",
+            "code_item AS codeItem",
+            "name_item AS nameItem", 
+            db.raw("to_char(max(created_date), 'YYYY-MM-DD HH24:MI:SS') AS lastCheck"),
+            db.raw("sum(qty) AS countQty"), 
+        )
+        .whereRaw("trim(customer_code) = ?", [customerCode])
+        .andWhereRaw("DATE(created_date) = ?", [date])
+        .andWhereRaw("created_by = ?", [salesCode])
+        .groupBy("item_code","code_item", "name_item"); 
+        const result = await query;  
+        console.log(result)
+        return result.length > 0 ? result : [];
     }
     
 }

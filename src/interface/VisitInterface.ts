@@ -184,3 +184,21 @@ export interface IDetailStockVisit {
     qty: number;
     note: string;
 }
+
+export interface IHeaderStockVisit {
+    id: number | string;
+    codeItem: string;
+    barcode: string;
+    nameItem: string;
+    code: string;
+    customerCode: string;
+    salesCode: string; 
+}
+
+export  interface lastCheckStockVisit {
+    itemCode: string;
+    codeItem: string;
+    nameItem: string;
+    lastCheck: string;
+    totalQty: number;
+}

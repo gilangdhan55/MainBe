@@ -1,6 +1,6 @@
 import validator from "validator";
 import {z} from "zod";
-import {IDetailStockVisit, IReqStartVisit} from "../interface/VisitInterface";
+import {IDetailStockVisit, IReqStartVisit, IHeaderStockVisit} from "../interface/VisitInterface";
 import {decodeId} from "../utils/hashids";
 export const validateUsername = (username: string): boolean => {
     return validator.isAlphanumeric(username);
@@ -35,6 +35,17 @@ export const validStartVisit = (data: IReqStartVisit ) => {
 
     return validStartAbsent.safeParse(data);
 }
+
+export const validGetItemVisit = (data: {customerCode: string; date: string; salesCode: string;}) => {
+    const valid = z.object({
+        customerCode: z.string().min(1, { message: "Customer Code is Required" }).transform((val) => val.replace(/\s/g, '')), 
+        salesCode: z.string().min(1, { message: "Code sales is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9]/g, '')),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date format must be YYYY-MM-DD" }).transform((val) => val.replace(/\s/g, '')), 
+    });
+
+    return valid.safeParse(data);
+}
+
 export const validEndVisit = (data: IReqStartVisit ) => {
     const validStartAbsent = z.object({
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date format must be YYYY-MM-DD" }),
@@ -69,16 +80,6 @@ export const validCustSalesCode = (data: { customerCode: string; salesCode: stri
         errors: !result.success ? result.error.flatten().fieldErrors : null
     }
 }
-
-interface IHeaderStockVisit {
-    id: number | string;
-    codeItem: string;
-    barcode: string;
-    nameItem: string;
-    code: string;
-    customerCode: string;
-    salesCode: string; 
-}
  
 export const validHeaderStock = (data: IHeaderStockVisit) => {
     const schema = z.object({ 
@@ -105,7 +106,7 @@ export const validHeaderStock = (data: IHeaderStockVisit) => {
 
 export const validDetailStockVisit = (data: IDetailStockVisit) => {
     const schema = z.object({
-        qty: z.number().min(1, { message: "Qty is Required" }).transform((val) => Number(val)),        
+        qty: z.number().min(0, { message: "Qty is Required" }).transform((val) => Number(val)),        
         price: z.string().min(1, { message: "Price is Required" }).transform((val) => val.replace(".", "").trim()),    
         note: z.string().min(1, { message: "Note is Required" }).transform((val) => val.trim()),
         visit_hdr_code: z.string().min(1, { message: "Code is Required" }).transform((val) => val.replace(/[^a-zA-Z0-9/]/g, '')),

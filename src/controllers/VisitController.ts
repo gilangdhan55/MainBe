@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd, IDetailStockVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock} from "../helper/Validator";
+import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock, validGetItemVisit} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
 import fs from "fs";
@@ -435,14 +435,20 @@ class VisitController extends BaseController{
     };
     
     async getMasteItemOutlet (req: Request, res: Response) : Promise<void> {
-        if(Object.keys(req.body).length < 1) res.status(400).json({ message: "Invalid Request", status: false });
-    
-        const {customerCode, date} = req.body;
-    
-        if(!customerCode || !date || !validateDate(date)) {
-            res.status(400).json({ message: "Invalid Request", status: false })
+        if(Object.keys(req.body).length < 1) {
+            this.sendError(res, "Invalid Request", 400);
+            return; 
+        }
+
+        const valid = await validGetItemVisit(req.body);
+        if(!valid.success) {
+            const errMessage = valid.error?.errors.map((err: { message: string }) => err.message).join(', ');
+            this.sendError(res, errMessage, 400);
             return;
-        };
+        } 
+        const {customerCode, date, salesCode} = valid.data;
+     
+        
         const week          = getWeekOfMonth(date);  
         const levelWeek     = getLevelWeek(week);
         
@@ -466,7 +472,10 @@ class VisitController extends BaseController{
                 return {...item, id: hashId}
             });
         } 
-        res.json({ message: "success", version: "v1", data: { item: getOutletItem, total: total}, status: true });
+
+        const lastStockItem = await VisitModel.getLastInputStock(customerCode, date, salesCode); 
+        
+        res.json({ message: "success", version: "v1", data: { item: getOutletItem, total: total, lastCheck:lastStockItem}, status: true });
     }
     
     async getPictVisit (req: Request, res: Response) : Promise<void> {
@@ -522,6 +531,7 @@ class VisitController extends BaseController{
             ));
              
             if(!validHeader.success || !detail.success){
+                console.log(detail)
                 this.sendError(res, "Invalid Request", 400, validHeader.errors || detail.errors);
                 return;
             }
