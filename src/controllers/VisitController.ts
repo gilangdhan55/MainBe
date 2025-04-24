@@ -1,8 +1,8 @@
 import { Request, Response } from "express";  
-import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd, IDetailStockVisit} from "../interface/VisitInterface"
+import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd, IDetailStockVisit, IHistoryStockVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock, validGetItemVisit} from "../helper/Validator";
+import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock, validGetItemVisit, validBodyApiStock} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
 import fs from "fs";
@@ -434,7 +434,7 @@ class VisitController extends BaseController{
         }
     };
     
-    async getMasteItemOutlet (req: Request, res: Response) : Promise<void> {
+    async getMasterItemOutlet (req: Request, res: Response) : Promise<void> {
         if(Object.keys(req.body).length < 1) {
             this.sendError(res, "Invalid Request", 400);
             return; 
@@ -538,7 +538,7 @@ class VisitController extends BaseController{
             const paramData = detail.data ? detail.data : [];
             
             const save = await VisitModel.saveStocKVisit(paramData);
-             console.log(save, paramData)
+         
             if(save.length < 1){
                 this.sendError(res, `Failed save stock ${validHeader.data?.nameItem}`, 400);
                 return;
@@ -547,6 +547,37 @@ class VisitController extends BaseController{
             this.sendResponse(res, save, `Success save stock ${validHeader.data?.nameItem}`); 
             return
         } catch (error : unknown) { 
+            this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
+            return;
+        } 
+    }
+
+    async getHistoryStockVisit (req: Request, res: Response) : Promise<void> {
+        try {
+            if(Object.keys(req.body).length < 1){
+                this.sendError(res, "Invalid Request", 400);
+                return;
+            }  
+            const isValid   = await validBodyApiStock(req.body);
+            if(!isValid.success){
+                this.sendError(res, "Invalid Request", 400, isValid.errors);
+                return
+            }  
+            const xPar          = JSON.parse(atob(decodeURIComponent(isValid.data?.xPar ?? '')));
+            const customerCode  = isValid.data?.customerCode;
+           
+            if(!xPar || xPar.length < 1 || !customerCode){ 
+                this.sendResponse(res, [], '', false); 
+                return;
+            }
+
+            const result = await VisitModel.getHistoryStockVisit(xPar, customerCode);
+            const newData : IHistoryStockVisit[]  = result.map((item) => { 
+                return {...item, id: encodeId(Number(item.id))}
+            });
+ 
+            this.sendResponse(res, newData, `okkk`); 
+        } catch  (error : unknown) { 
             this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
             return;
         } 

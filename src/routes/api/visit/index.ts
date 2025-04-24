@@ -25,7 +25,7 @@ routeVisit.route("/check-absent-visit")
 
 routeVisit.route("/visit-master-item-outlet")
 .all(verifyToken)
-.post((req: Request, res: Response) => visitControllers.getMasteItemOutlet(req, res));
+.post((req: Request, res: Response) => visitControllers.getMasterItemOutlet(req, res));
 
 routeVisit.route("/start-visit")
 .all(verifyToken)
@@ -43,4 +43,8 @@ routeVisit.route("/get-pict-visit")
 routeVisit.route("/save-stock-visit")
 .all(verifyToken) 
 .post((req: Request, res: Response) => visitControllers.saveStocKVisit(req, res));
+
+routeVisit.route("/get-history-stock-visit")
+.all(verifyToken)
+.post((req: Request, res: Response) => visitControllers.getHistoryStockVisit(req, res));
 export default routeVisit;

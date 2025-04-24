@@ -202,3 +202,24 @@ export  interface lastCheckStockVisit {
     lastCheck: string;
     totalQty: number;
 }
+
+export interface IBodyApiStock{
+    xPar: string;
+    customerCode: string;
+}
+
+export interface ArrCodeBarcode {
+    item_code: string; 
+    code_item: string;
+}
+
+export interface IHistoryStockVisit {
+    id: number | string;
+    code_item: string;
+    item_code: string;
+    qty: number;
+    expired_date: string;
+    price: number;
+    note:string;
+    created_date:string;
+}

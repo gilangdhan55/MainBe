@@ -105,9 +105,6 @@ importers:
       '@types/readable-stream':
         specifier: ^2.3.15
         version: 2.3.15
-      '@types/sharp':
-        specifier: ^0.32.0
-        version: 0.32.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.29.0
         version: 8.29.1(@typescript-eslint/parser@8.29.1(eslint@9.24.0)(typescript@5.8.3))(eslint@9.24.0)(typescript@5.8.3)
@@ -124,8 +121,8 @@ importers:
         specifier: ^16.0.0
         version: 16.0.0
       nodemon:
-        specifier: ^3.1.9
-        version: 3.1.9
+        specifier: ^3.1.10
+        version: 3.1.10
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@22.14.0)(typescript@5.8.3)
@@ -507,10 +504,6 @@ packages:
 
   '@types/serve-static@1.15.7':
     resolution: {integrity: sha512-W8Ym+h8nhuRwaKPaDw34QUkwsGi6Rc4yYqvKFo5rm2FUEhCFbzVWrxXUxuKK8TASjWsysJY0nsmNCGhCOIsrOw==}
-
-  '@types/sharp@0.32.0':
-    resolution: {integrity: sha512-OOi3kL+FZDnPhVzsfD37J88FNeZh6gQsGcLc95NbeURRGvmSjeXiDcyWzF2o3yh/gQAUn2uhh/e+CPCa5nwAxw==}
-    deprecated: This is a stub types definition. sharp provides its own type definitions, so you do not need this installed.
 
   '@types/triple-beam@1.3.5':
     resolution: {integrity: sha512-6WaYesThRMCl19iryMYP7/x2OVgCtbIVflDGFpWnb9irXI3UjYE4AzmYuiUKY1AJstGijoY+MgUszMgRxIYTYw==}
@@ -1395,8 +1388,8 @@ packages:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
 
-  nodemon@3.1.9:
-    resolution: {integrity: sha512-hdr1oIb2p6ZSxu3PB2JWWYS7ZQ0qvaZsc3hK8DR8f02kRzc8rjYmxAIvdz+aYC+8F2IjNaB7HMcSDg8nQpJxyg==}
+  nodemon@3.1.10:
+    resolution: {integrity: sha512-WDjw3pJ0/0jMFmyNDp3gvY2YizjLmmOUQo6DEBY+JgdvW/yQ9mEeSw6H5ythl5Ny2ytb7f9C2nIbjSxMNzbJXw==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -2340,10 +2333,6 @@ snapshots:
       '@types/node': 22.14.0
       '@types/send': 0.17.4
 
-  '@types/sharp@0.32.0':
-    dependencies:
-      sharp: 0.34.1
-
   '@types/triple-beam@1.3.5': {}
 
   '@types/validator@13.12.3': {}
@@ -3258,7 +3247,7 @@ snapshots:
 
   negotiator@0.6.3: {}
 
-  nodemon@3.1.9:
+  nodemon@3.1.10:
     dependencies:
       chokidar: 3.6.0
       debug: 4.4.0(supports-color@5.5.0)

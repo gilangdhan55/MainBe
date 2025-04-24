@@ -1,6 +1,6 @@
 import validator from "validator";
 import {z} from "zod";
-import {IDetailStockVisit, IReqStartVisit, IHeaderStockVisit} from "../interface/VisitInterface";
+import {IDetailStockVisit, IReqStartVisit, IHeaderStockVisit, IBodyApiStock} from "../interface/VisitInterface";
 import {decodeId} from "../utils/hashids";
 export const validateUsername = (username: string): boolean => {
     return validator.isAlphanumeric(username);
@@ -132,4 +132,18 @@ export const validDetailStockVisit = (data: IDetailStockVisit) => {
         data: result.success ? result.data : null,
         errors: !result.success ? result.error.flatten().fieldErrors : null
     }
+}
+
+export const validBodyApiStock = (data: IBodyApiStock) => {
+    const schema = z.object({
+        customerCode: z.string().min(1, { message: "Customer Code is Required" }).transform((val) => val.replace(/\s/g, '')), 
+        xPar: z.string().min(1, { message: "not valid" }).transform((val) => val.trim())
+    });
+
+    const result = schema.safeParse(data);
+    return {
+        success: result.success,
+        data: result.success ? result.data : null,
+        errors: !result.success ? result.error.flatten().fieldErrors : null
+    } 
 }
