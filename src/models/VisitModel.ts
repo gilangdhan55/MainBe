@@ -267,52 +267,62 @@ export class VisitModel {
         }
     } 
 
-    static async getLastInputStock(customerCode: string, date: string, salesCode: string) : Promise<lastCheckStockVisit[]|[]> {
-        console.log(customerCode, date, salesCode);
-        const query = db("app.visit_stock")
-        .select(
-            "item_code AS itemCode",
-            "code_item AS codeItem",
-            "name_item AS nameItem", 
-            db.raw("to_char(max(created_date), 'YYYY-MM-DD HH24:MI:SS') AS lastCheck"),
-            db.raw("sum(qty) AS countQty"), 
-        )
-        .whereRaw("trim(customer_code) = ?", [customerCode])
-        .andWhereRaw("DATE(created_date) = ?", [date])
-        .andWhereRaw("created_by = ?", [salesCode])
-        .groupBy("item_code","code_item", "name_item"); 
-        const result = await query;   
-        return result.length > 0 ? result : [];
+    static async getLastInputStock(customerCode: string, date: string, salesCode: string) : Promise<lastCheckStockVisit[]|[]> { 
+       try{
+            const query = db("app.visit_stock")
+            .select(
+                "item_code AS itemCode",
+                "code_item AS codeItem",
+                "name_item AS nameItem", 
+                db.raw("to_char(max(created_date), 'YYYY-MM-DD HH24:MI:SS') AS lastCheck"),
+                db.raw("sum(qty) AS countQty"), 
+            )
+            .whereRaw("trim(customer_code) = ?", [customerCode])
+            .andWhereRaw("DATE(created_date) = ?", [date])
+            .andWhereRaw("created_by = ?", [salesCode])
+            .groupBy("item_code","code_item", "name_item");
+
+            const result = await query;   
+            return result.length > 0 ? result : [];
+       } catch (error) {
+            console.error("error get data : ", error);
+            return [];
+       }
     }
 
   
 
     static async getHistoryStockVisit(xPar:ArrCodeBarcode[], customerCode: string) : Promise<IHistoryStockVisit[] | []> {
-        const query = `WITH data(jsondata) AS (
-            VALUES (?::jsonb)
-            ),
-            parsed AS (
-            SELECT *
-            FROM data,
-                jsonb_to_recordset(data.jsondata)
-                AS x(code_item TEXT, item_code TEXT)
-            )
-            SELECT id, code_item, item_code, qty,to_char(expired_date, 'YYYY-MM-DD') AS expired_date, price, note, to_char(created_date, 'YYYY-MM-DD')  AS created_date
-            FROM (
-            SELECT a.id, a.code_item, a.item_code, a.qty,
-                    DATE(a.expired_date) AS expired_date, a.price,
-                    DATE(a.created_date) AS created_date, a.note,
-                    ROW_NUMBER() OVER (PARTITION BY a.item_code, a.code_item ORDER BY a.created_date DESC) AS rn
-            FROM app.visit_stock a
-            JOIN parsed p ON a.code_item = p.code_item AND a.item_code = p.item_code
-            WHERE a.created_date >= (SELECT max(created_date) - INTERVAL '30 days'  FROM app.visit_stock WHERE TRIM(customer_code) 
-            = ? )
-                AND TRIM(a.customer_code) = ? 
-            ) stock
-            WHERE rn <= 10 `;
-        const result = await db.raw(query, [JSON.stringify(xPar), customerCode, customerCode]);
-
-        return result.rows || [];  
+        try{
+            const query = `WITH data(jsondata) AS (
+                VALUES (?::jsonb)
+                ),
+                parsed AS (
+                SELECT *
+                FROM data,
+                    jsonb_to_recordset(data.jsondata)
+                    AS x(code_item TEXT, item_code TEXT)
+                )
+                SELECT id, code_item, item_code, qty,to_char(expired_date, 'YYYY-MM-DD') AS expired_date, price, note, to_char(created_date, 'YYYY-MM-DD')  AS created_date
+                FROM (
+                SELECT a.id, a.code_item, a.item_code, a.qty,
+                        DATE(a.expired_date) AS expired_date, a.price,
+                        DATE(a.created_date) AS created_date, a.note,
+                        ROW_NUMBER() OVER (PARTITION BY a.item_code, a.code_item ORDER BY a.created_date DESC) AS rn
+                FROM app.visit_stock a
+                JOIN parsed p ON a.code_item = p.code_item AND a.item_code = p.item_code
+                WHERE a.created_date >= (SELECT max(created_date) - INTERVAL '30 days'  FROM app.visit_stock WHERE TRIM(customer_code) 
+                = ? )
+                    AND TRIM(a.customer_code) = ? 
+                ) stock
+                WHERE rn <= 10 ORDER BY to_char(created_date, 'YYYY-MM-DD') DESC `;
+            const result = await db.raw(query, [JSON.stringify(xPar), customerCode, customerCode]);
+    
+            return result.rows || [];  
+        } catch (error) {
+            console.error("error get data : ", error);
+            return [];
+        }
     }
     
 }

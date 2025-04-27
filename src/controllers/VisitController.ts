@@ -98,6 +98,7 @@ class VisitController extends BaseController{
         const absenKey      = keyAbsen(username, date); 
      
         const cachedAbsen   = await redis.get(absenKey);  
+  
         const absent        = !cachedAbsen ? await VisitModel.checkAbsenSalesman(username, date) : JSON.parse(cachedAbsen); 
     
         if(!cachedAbsen){
@@ -125,7 +126,7 @@ class VisitController extends BaseController{
         } 
     
         // ambil data absen yang belum clock out
-        const absentNotVisitKey     = keyDateNotClockOut(date);
+        const absentNotVisitKey     = keyDateNotClockOut(username);
         const cachedAbsentNotVisit  = await redis.get(absentNotVisitKey);
         const absentNotVisit        = !cachedAbsentNotVisit ? await VisitModel.getAbsentNotVisit(username) || [] : JSON.parse(cachedAbsentNotVisit); 
         if(!cachedAbsentNotVisit){
@@ -225,8 +226,15 @@ class VisitController extends BaseController{
                 return;
             }
             data.date = date_default; 
-            const updateCache = await this.updateAbsenCache(username, data);
+            const updateCache = await this.updateAbsenCache(username, data); 
             if(!updateCache) console.error("cache not set"); 
+            const checkKeys =  await redis.keys(`*${username}*`); 
+            
+            console.log(checkKeys)
+            if (checkKeys.length > 0) {
+                console.log(checkKeys)
+                await redis.del(...checkKeys);
+            }
             res.status(200).json({ message: "Clock out berhasil!", status: true, data: updateCache, version: "v1" });
         } catch (error) {
             console.error("Error absen:", error);
@@ -576,7 +584,7 @@ class VisitController extends BaseController{
                 return {...item, id: encodeId(Number(item.id))}
             });
  
-            this.sendResponse(res, newData, `okkk`); 
+            this.sendResponse(res, newData, `success get history stock`); 
         } catch  (error : unknown) { 
             this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
             return;

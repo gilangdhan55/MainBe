@@ -195,7 +195,7 @@ export interface IHeaderStockVisit {
     salesCode: string; 
 }
 
-export  interface lastCheckStockVisit {
+export interface lastCheckStockVisit {
     itemCode: string;
     codeItem: string;
     nameItem: string;
