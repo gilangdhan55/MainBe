@@ -58,16 +58,16 @@ const getWeekOfMonth = (dateStr: string): number => {
     const firstDayOfWeek    = (firstDay.getDay() + 6) % 7; 
     const weekOfMonth       = Math.ceil((date.getDate() + firstDayOfWeek) / 7);
  
-    const lastDay   = new Date(year, month + 1, 0); 
-    const lastWeek  = Math.ceil((lastDay.getDate() + firstDayOfWeek) / 7);
- 
-    if (weekOfMonth === 6) {
-        return 1; 
-    } else if (weekOfMonth > 1 && lastWeek === 6) {
-        return weekOfMonth - 1; 
-    }
+    // const lastDay   = new Date(year, month + 1, 0); 
+    // const lastWeek  = Math.ceil((lastDay.getDate() + firstDayOfWeek) / 7); 
+    
+    // if (weekOfMonth === 6) {
+    //     return 1; 
+    // } else if (weekOfMonth > 1 && lastWeek === 6) {
+    //     return weekOfMonth - 1; 
+    // }
 
-    return weekOfMonth;
+    return ((weekOfMonth - 1) % 4) + 1;
 };
  
 const getDay = (date: string) : number => {
