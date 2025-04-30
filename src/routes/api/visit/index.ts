@@ -47,4 +47,11 @@ routeVisit.route("/save-stock-visit")
 routeVisit.route("/get-history-stock-visit")
 .all(verifyToken)
 .post((req: Request, res: Response) => visitControllers.getHistoryStockVisit(req, res));
+
+routeVisit.route("/delete-stock-visit")
+.all(verifyToken)
+.post((req: Request, res: Response) => visitControllers.deleteStockVisit(req, res));
+
+
+
 export default routeVisit;

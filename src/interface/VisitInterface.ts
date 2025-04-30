@@ -185,6 +185,15 @@ export interface IDetailStockVisit {
     note: string;
 }
 
+export interface IDetailStockCurrent {
+    qty: number;
+    price: string;
+    note: string;
+    is_problem: string;
+    expired_date: string;
+    id?: number | string;
+}
+
 export interface IHeaderStockVisit {
     id: number | string;
     codeItem: string;

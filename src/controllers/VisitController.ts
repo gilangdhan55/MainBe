@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd, IDetailStockVisit, IHistoryStockVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
 import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
-import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock, validGetItemVisit, validBodyApiStock} from "../helper/Validator";
+import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock, validGetItemVisit, validBodyApiStock, validIdStock, validDetailStockVisitCurrent} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
 import fs from "fs";
@@ -229,10 +229,8 @@ class VisitController extends BaseController{
             const updateCache = await this.updateAbsenCache(username, data); 
             if(!updateCache) console.error("cache not set"); 
             const checkKeys =  await redis.keys(`*${username}*`); 
-            
-            console.log(checkKeys)
-            if (checkKeys.length > 0) {
-                console.log(checkKeys)
+             
+            if (checkKeys.length > 0) { 
                 await redis.del(...checkKeys);
             }
             res.status(200).json({ message: "Clock out berhasil!", status: true, data: updateCache, version: "v1" });
@@ -526,33 +524,60 @@ class VisitController extends BaseController{
             const {header, data} = req.body;
            
             if(!header || !data || header.length < 1 || Object.keys(data).length < 1){
-                this.sendError(res, "Invalid Request", 400);    
+                this.sendError(res, "Invalid Valid Request", 400);    
                 return;
             }
 
             // validasi
             const validHeader   = await validHeaderStock(header);
-            const detail        = await validDetailStockVisit(
-                data.map((item: IDetailStockVisit) => {
+            const detailNew     = await validDetailStockVisit(
+                data.newData.map((item: IDetailStockVisit) => {
                     return {...item, created_date: getTimeNow()}
                 }
-            ));
+            )); 
+            const detailCurrent = await validDetailStockVisitCurrent(data.dataCurrent);
              
-            if(!validHeader.success || !detail.success){
-                console.log(detail)
-                this.sendError(res, "Invalid Request", 400, validHeader.errors || detail.errors);
-                return;
-            }
-            const paramData = detail.data ? detail.data : [];
-            
-            const save = await VisitModel.saveStocKVisit(paramData);
-         
-            if(save.length < 1){
-                this.sendError(res, `Failed save stock ${validHeader.data?.nameItem}`, 400);
+            if(!validHeader.success || !detailNew.success || !detailCurrent.success){ 
+                this.sendError(res, "Invalid Save Stock", 400, validHeader.errors || detailNew.errors);
                 return;
             }
 
-            this.sendResponse(res, save, `Success save stock ${validHeader.data?.nameItem}`); 
+            const paramData = detailNew.data ? detailNew.data : []; 
+            
+            if(paramData.length > 0 || detailCurrent.data){ 
+                const save = await VisitModel.saveStocKVisit(paramData);
+                
+                if(save.length < 1){
+                    this.sendError(res, `Failed save stock ${validHeader.data?.nameItem}`, 400);
+                    return;
+                } 
+
+                if(detailCurrent.data){
+                    for(const item of detailCurrent.data){
+                        const id = item.id;
+                        const param = {
+                            qty: item.qty,
+                            price: item.price,
+                            note: item.note,
+                            is_problem: item.is_problem,
+                            expired_date: item.expired_date,
+                        } 
+                        if(id){
+                            const update = await VisitModel.updateStockVisit(param, id);
+                            if(!update){
+                                await VisitModel.deleteStockVisitIn(save);
+                                this.sendError(res, `Failed update stock ${validHeader.data?.nameItem}`, 400);
+                            } 
+                        }
+                    }
+                }
+                this.sendResponse(res, save, `Success save stock ${validHeader.data?.nameItem}`); 
+            }else{
+                this.sendError(res, "Param Data Is Empty", 400);
+            }
+            
+            // this.sendResponse(res, '', `Success save stock ${validHeader.data?.nameItem}`); 
+            // this.sendResponse(res, save, `Success save stock ${validHeader.data?.nameItem}`); 
             return
         } catch (error : unknown) { 
             this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
@@ -591,6 +616,28 @@ class VisitController extends BaseController{
         } 
     }
  
+    async deleteStockVisit (req: Request, res: Response) : Promise<void> {
+        try {
+            const isValid = await validIdStock(req.body);
+            if(!isValid.success){
+                this.sendError(res, "Invalid Request", 400, isValid.errors);
+                return
+            }
+            const id = decodeId(isValid.data?.id ?? '');
+            if(!id){ 
+                this.sendError(res, "Invalid Request", 400, 'Invalid id');
+                return;
+            }
+            const result = await VisitModel.deleteStockVisit(id);
+            const message = result ? 'success delete stock' : 'failed delete stock';
+            this.sendResponse(res, '', message, result); 
+        } catch (error : unknown) { 
+            this.sendError(res, "Internal Server Error", 500, [{error: error instanceof Error ? error.message : undefined}]); 
+            return;
+        } 
+    }
+
+
     private async createAbsenCache(username: string, absent: AbsenSalesman){
         const date      = absent.start_absent.substring(0, 10);
         const absenKey = keyAbsen(username, date);

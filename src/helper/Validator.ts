@@ -1,6 +1,6 @@
 import validator from "validator";
 import {z} from "zod";
-import {IDetailStockVisit, IReqStartVisit, IHeaderStockVisit, IBodyApiStock} from "../interface/VisitInterface";
+import {IDetailStockVisit, IReqStartVisit, IHeaderStockVisit, IBodyApiStock, IDetailStockCurrent} from "../interface/VisitInterface";
 import {decodeId} from "../utils/hashids";
 export const validateUsername = (username: string): boolean => {
     return validator.isAlphanumeric(username);
@@ -122,11 +122,26 @@ export const validDetailStockVisit = (data: IDetailStockVisit) => {
         customer_code: z.string().min(1, { message: "Customer Code is Required" }).transform((val) => val.replace(/\s/g, '')),
         is_problem: z.string().min(1, { message: "is_problem is Required" }).max(1, { message: "is_problem must be y or n" })
           .refine((val) => ['y', 'n'].includes(val), { message: "is_problem must be 'y' or 'n'" }) // Custom validation for y or n
-    });
-      
+    }); 
+    const result = z.array(schema).safeParse(data); 
+    return {
+        success: result.success,
+        data: result.success ? result.data : null,
+        errors: !result.success ? result.error.flatten().fieldErrors : null
+    }
+}
 
-    const result = z.array(schema).safeParse(data);
-
+export const validDetailStockVisitCurrent = (data: IDetailStockCurrent) => {
+    const schema = z.object({
+        qty: z.number().min(0, { message: "Qty is Required" }).transform((val) => Number(val)),        
+        price: z.string().min(1, { message: "Price is Required" }).transform((val) => val.replace(".", "").trim()),    
+        note: z.string().min(1, { message: "Note is Required" }).transform((val) => val.trim()), 
+        expired_date: z.string().transform((val) => val.trim()),   
+        is_problem: z.string().min(1, { message: "is_problem is Required" }).max(1, { message: "is_problem must be y or n" })
+          .refine((val) => ['y', 'n'].includes(val), { message: "is_problem must be 'y' or 'n'" }),
+        id: z.string().min(1, { message: "Id is Required" }).transform((val) => decodeId(val.replace(/\s/g, ''))),
+    }); 
+    const result = z.array(schema).safeParse(data); 
     return {
         success: result.success,
         data: result.success ? result.data : null,
@@ -146,4 +161,17 @@ export const validBodyApiStock = (data: IBodyApiStock) => {
         data: result.success ? result.data : null,
         errors: !result.success ? result.error.flatten().fieldErrors : null
     } 
+}
+
+export const validIdStock = (data: {id: string}) => {
+    const schema = z.object({ 
+        id: z.string().min(1, { message: "Id is Required" }).transform((val) => val.replace(/\s/g, '')), 
+    });
+
+    const result = schema.safeParse(data);
+    return {
+        success: result.success,
+        data: result.success ? result.data : null,
+        errors: !result.success ? result.error.flatten().fieldErrors : null
+    }
 }

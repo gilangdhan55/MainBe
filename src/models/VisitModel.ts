@@ -7,7 +7,8 @@ import {IStartAbsent, IModelAbsenSalesmanDetail, ScheduleSalesman,AbsenSalesman,
     IDetailStockVisit,
     lastCheckStockVisit,
     ArrCodeBarcode,
-    IHistoryStockVisit
+    IHistoryStockVisit,
+    IDetailStockCurrent
 } from '../interface/VisitInterface';
  
 export class VisitModel {
@@ -129,8 +130,7 @@ export class VisitModel {
         
         return result;
     }
-
-
+ 
     static async checkVisitHdr(username: string, date: string, customerCode: string) : Promise<IVisitHdr | null> {
         const query = db("app.visit_hdr")
         .select(
@@ -259,13 +259,21 @@ export class VisitModel {
             
             // result = [{ id: '123' }] -> ambil value-nya
             const ids = result.map((row) => row.id.toString());
-            return ids;
-    
+            return ids; 
         } catch (error) {
             console.error("Error inserting data:", error);
             return [];
         }
     } 
+
+    static async updateStockVisit(data: IDetailStockCurrent, id:number): Promise<boolean> {
+        try {  
+            return (await db("app.visit_stock").where("id", id).update(data)) > 0;
+        } catch (error) {
+            console.error("Error updating data:", error);
+            return false;
+        }
+    }
 
     static async getLastInputStock(customerCode: string, date: string, salesCode: string) : Promise<lastCheckStockVisit[]|[]> { 
        try{
@@ -323,6 +331,14 @@ export class VisitModel {
             console.error("error get data : ", error);
             return [];
         }
+    }
+
+    static async deleteStockVisit(id: number) : Promise<boolean> {
+        return await db("app.visit_stock").where("id", id).del() > 0;
+    }
+
+    static async deleteStockVisitIn(data: string[]) : Promise<boolean> {
+        return await db("app.visit_stock").whereIn("id", data).del() > 0;
     }
     
 }
