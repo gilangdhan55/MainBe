@@ -1,7 +1,7 @@
 import { Request, Response } from "express";  
 import {AbsenSalesmanDetail, ISchedule, IStartAbsent, AbsenSalesman, IEndAbsent, IVisitHdr, IMasterItemOutlet, IParmStartVisit, IParmStartHdr, IPictVisit, IEndAbsentVisit, IVisitEnd, IDetailStockVisit, IHistoryStockVisit} from "../interface/VisitInterface"
 import {VisitModel} from "../models/VisitModel"; 
-import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY} from "../helper/GetWeek";
+import {getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, strToTime, formatDateDMY, formatDateYMD} from "../helper/GetWeek";
 import {validateUsername, validateDate, validatePastDate, validStartVisit, validCustSalesCode, validEndVisit, validDetailStockVisit, validHeaderStock, validGetItemVisit, validBodyApiStock, validIdStock, validDetailStockVisitCurrent} from "../helper/Validator";
 import redis from "../utils/redis"
 import {keyAbsen, keyDateNotClockOut, keyVisitNow, keyAbsentVisit, keyItemVisitOutlet, keyPictVisit} from "../helper/KeyRedis";
@@ -542,16 +542,33 @@ class VisitController extends BaseController{
                 return;
             }
 
-            const paramData = detailNew.data ? detailNew.data : []; 
-            
-            if(paramData.length > 0 || detailCurrent.data){ 
-                const save = await VisitModel.saveStocKVisit(paramData);
-                
-                if(save.length < 1){
+            const paramData     = detailNew.data ? detailNew.data : []; 
+           
+            if(paramData.length > 0 || detailCurrent.data){  
+                const save = await VisitModel.saveStocKVisit(paramData, true); 
+                const sendBackData   = save.map((row) => {
+                    if(typeof row === 'object'){
+                        const hashId = encodeId(Number(row.id));
+                        const created = row?.created_date?.toString() || getTimeNow();
+                        const newData : IHistoryStockVisit= {
+                            code_item: row.code_item ?? "", 
+                            created_date: formatDateYMD(created ),
+                            expired_date: formatDateYMD(row.expired_date.toString()),
+                            item_code: row.item_code ?? "",
+                            note: row.note,
+                            price: row.price,
+                            qty: row.qty,
+                            id: hashId,
+                        }
+                        return newData;
+                    } 
+                }).filter((row)=> typeof row === 'object');
+                 
+                if(paramData.length > 0 && save.length < 1){
                     this.sendError(res, `Failed save stock ${validHeader.data?.nameItem}`, 400);
                     return;
                 } 
-
+                
                 if(detailCurrent.data){
                     for(const item of detailCurrent.data){
                         const id = item.id;
@@ -564,14 +581,29 @@ class VisitController extends BaseController{
                         } 
                         if(id){
                             const update = await VisitModel.updateStockVisit(param, id);
-                            if(!update){
-                                await VisitModel.deleteStockVisitIn(save);
+                            if(!update){ 
+                                const ids = save.map((row) =>  
+                                    {if(typeof row === 'object') return Number(row.id);}
+                                ).filter((id): id is number => typeof id === 'number');  
+                                await VisitModel.deleteStockVisitIn(ids);
                                 this.sendError(res, `Failed update stock ${validHeader.data?.nameItem}`, 400);
                             } 
+                            const data : IHistoryStockVisit = {
+                                code_item: validHeader.data?.barcode ?? '', 
+                                created_date: formatDateYMD(getTimeNow()),
+                                expired_date: formatDateYMD(item.expired_date),
+                                item_code: validHeader.data?.codeItem ?? '',
+                                note: item.note,
+                                price: item.price,
+                                qty: item.qty,
+                                id: encodeId(Number(id)),
+                            }
+                            sendBackData.push({...item, ...data});
                         }
                     }
-                }
-                this.sendResponse(res, save, `Success save stock ${validHeader.data?.nameItem}`); 
+                } 
+
+                this.sendResponse(res, sendBackData, `Success save stock ${validHeader.data?.nameItem}`); 
             }else{
                 this.sendError(res, "Param Data Is Empty", 400);
             }
@@ -675,7 +707,7 @@ class VisitController extends BaseController{
         }); 
         return visit;
     }
-  
+   
     private async updatePictureVisit(customerCode: string, salesCode: string, data: IParmStartVisit)  { 
         const key           = keyPictVisit(customerCode, salesCode); 
         const getCached     = await redis.get(key);

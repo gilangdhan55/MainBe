@@ -251,14 +251,16 @@ export class VisitModel {
         }  
     }
 
-    static async saveStocKVisit(data: IDetailStockVisit[] | []): Promise<Array<string>> {
+    static async saveStocKVisit(data: IDetailStockVisit[] | [], returnData: boolean = false): Promise<Array<string> | IDetailStockVisit[]> {
+        if(data.length === 0) return [];
         try {
             const result = await db("app.visit_stock")
                 .insert(data)
                 .returning('id'); 
             
             // result = [{ id: '123' }] -> ambil value-nya
-            const ids = result.map((row) => row.id.toString());
+            if(!returnData) return result.map((row) => row.id.toString());
+            const ids = result.map((row, index) => ({ id: Number(row.id), ...data[index] }));
             return ids; 
         } catch (error) {
             console.error("Error inserting data:", error);
@@ -337,7 +339,8 @@ export class VisitModel {
         return await db("app.visit_stock").where("id", id).del() > 0;
     }
 
-    static async deleteStockVisitIn(data: string[]) : Promise<boolean> {
+    static async deleteStockVisitIn(data: Array<number> | []) : Promise<boolean> {
+        if(data.length == 0) return false;
         return await db("app.visit_stock").whereIn("id", data).del() > 0;
     }
     

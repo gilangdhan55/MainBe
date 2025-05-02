@@ -183,6 +183,7 @@ export interface IDetailStockVisit {
     price: string;
     qty: number;
     note: string;
+    id?: number | string;
 }
 
 export interface IDetailStockCurrent {
@@ -228,7 +229,7 @@ export interface IHistoryStockVisit {
     item_code: string;
     qty: number;
     expired_date: string;
-    price: number;
+    price: string | number;
     note:string;
     created_date:string;
 }

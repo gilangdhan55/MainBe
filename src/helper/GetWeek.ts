@@ -100,6 +100,14 @@ const formatDateDMY = (date: string): string => {
     return initFormat;
 }
 
+const formatDateYMD = (date: string): string => {
+    const now        = new Date(date);
+    const formatter  = getFullFormatter();
+    const initFormat = dateFormattedDate(formatter, now);
+    //y-m-d
+    return initFormat;
+}
+
 const getFullDateNoTme = (date?: string): string => {
     const now        = date ? new Date(date) : new Date(); 
     const formatter  = getFullFormatter(); 
@@ -127,5 +135,5 @@ const strToTime = (time: string) : number => {
     return Math.floor(new Date(time).getTime() / 1000); 
 }
 
-export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate, strToTime, dateFormattedDate2, formatDateDMY};
+export { getWeekOfMonth, getDay, getTimeNow, getTimeHour, getLevelWeek, getFullDateNoTme, dateFormattedDate, strToTime, dateFormattedDate2, formatDateDMY, formatDateYMD};
  
