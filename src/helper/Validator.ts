@@ -2,6 +2,7 @@ import validator from "validator";
 import {z} from "zod";
 import {IDetailStockVisit, IReqStartVisit, IHeaderStockVisit, IBodyApiStock, IDetailStockCurrent} from "../interface/VisitInterface";
 import {decodeId} from "../utils/hashids";
+
 export const validateUsername = (username: string): boolean => {
     return validator.isAlphanumeric(username);
 };
